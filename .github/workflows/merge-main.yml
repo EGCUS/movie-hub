@@ -1,6 +1,6 @@
 # ----------------------------------------------------------------------------
-# Merge Main Workflow con chore commits
-# Este workflow automatiza el merge a main para lanzar posteriormente el de release
+# Merge Develop → Main Workflow con commits 'chore(release)'
+# Este workflow automatiza el merge a main para lanzar posteriormente el release
 # ----------------------------------------------------------------------------
 
 name: Merge Develop to Main on Release
@@ -13,6 +13,7 @@ on:
 jobs:
   merge-to-main:
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v4
         with:
@@ -27,6 +28,7 @@ jobs:
             echo "trigger=true" >> $GITHUB_OUTPUT
           else
             echo "trigger=false" >> $GITHUB_OUTPUT
+          fi
 
       - name: Merge develop → main
         if: steps.check_commit.outputs.trigger == 'true'
