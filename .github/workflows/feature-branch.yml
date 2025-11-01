@@ -45,7 +45,7 @@ jobs:
           while IFS= read -r commit; do
             mensaje=$(echo "$commit" | awk '{$1=""; print $0}' | xargs)
             
-            if ! echo "$mensaje" | grep -Eq '^(feat|fix|test|docs)\([a-zA-Z0-9._-]+\):\ .+'; then
+            if ! echo "$mensaje" | grep -Eq '^(feat|fix|test|docs)(\([a-zA-Z0-9._-]+\))?:\ ?.+$'; then
               echo "Invalid commit message: '$mensaje'"
               exit 1
             fi
