@@ -18,7 +18,7 @@ Por otra parte, cada desarrollador creará ramas a partir de main para trabajar.
 ## Tipos de ramas
 
 Hay 4 tipos de ramas estrechamente relacionadas con los tipos de commits:
-- feat: una rama dedicada a añadir una nueva característica o funcionalidad.
+- feature: una rama dedicada a añadir una nueva característica o funcionalidad.
 - docs: ramas en las que se añade o modifica la documentación del proyecto.
 - fix: ramas para arreglos de bugs.
 - test: ramas dedicadas a la implementación de pruebas.
