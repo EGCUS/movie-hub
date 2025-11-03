@@ -5,6 +5,7 @@ from flask import request
 from sqlalchemy import Enum as SQLAlchemyEnum
 
 from app import db
+from app.modules.dataset.base_dataset import BaseDataset
 
 
 class PublicationType(Enum):
@@ -64,13 +65,11 @@ class DSMetaData(db.Model):
     authors = db.relationship("Author", backref="ds_meta_data", lazy=True, cascade="all, delete")
 
 
-class DataSet(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+class DataSet(BaseDataset):
+    
+    __mapper_args__ = {"polymorphic_identity": "uvl"}
 
     ds_meta_data_id = db.Column(db.Integer, db.ForeignKey("ds_meta_data.id"), nullable=False)
-    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
-
     ds_meta_data = db.relationship("DSMetaData", backref=db.backref("data_set", uselist=False))
     feature_models = db.relationship("FeatureModel", backref="data_set", lazy=True, cascade="all, delete")
 
@@ -79,10 +78,6 @@ class DataSet(db.Model):
 
     def files(self):
         return [file for fm in self.feature_models for file in fm.files]
-
-    def delete(self):
-        db.session.delete(self)
-        db.session.commit()
 
     def get_cleaned_publication_type(self):
         return self.ds_meta_data.publication_type.name.replace("_", " ").title()
@@ -126,9 +121,6 @@ class DataSet(db.Model):
             "total_size_in_bytes": self.get_file_total_size(),
             "total_size_in_human_format": self.get_file_total_size_for_human(),
         }
-
-    def __repr__(self):
-        return f"DataSet<{self.id}>"
 
 
 class DSDownloadRecord(db.Model):
