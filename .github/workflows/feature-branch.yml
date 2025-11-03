@@ -100,3 +100,5 @@ jobs:
     name: Run Codacy workflow
     needs: merge-to-develop
     uses: ./.github/workflows/codacy.yml
+    secrets:
+      CODACY_PROJECT_TOKEN: ${{ secrets.CODACY_PROJECT_TOKEN }}
