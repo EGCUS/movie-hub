@@ -102,3 +102,8 @@ jobs:
     uses: ./.github/workflows/codacy.yml
     secrets:
       CODACY_PROJECT_TOKEN: ${{ secrets.CODACY_PROJECT_TOKEN }}
+
+  run-tests:
+    name: Run tests
+    needs: merge-to-develop
+    uses: ./.github/workflows/tests.yml
