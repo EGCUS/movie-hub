@@ -39,3 +39,20 @@ jobs:
           git checkout main
           git merge --no-ff develop -m "Merge develop → main [auto release]"
           git push origin main
+
+  run-codacy:
+    name: Run Codacy workflow
+    needs: merge-to-main
+    uses: ./.github/workflows/codacy.yml
+    secrets:
+      CODACY_PROJECT_TOKEN: ${{ secrets.CODACY_PROJECT_TOKEN }}
+
+  run-tests:
+    name: Run tests
+    needs: merge-to-main
+    uses: ./.github/workflows/tests.yml
+
+  run-release-workflow:
+    name: Run release generator
+    needs: merge-to-main
+    uses: ./.github/workflows/release.yml
