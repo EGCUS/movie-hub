@@ -4,7 +4,7 @@ from app.modules.fakenodo.repositories import FakenodoRepository
 from core.services.BaseService import BaseService
 from app.modules.movie.models import MovieDataset
 from app.modules.featuremodel.models import FeatureModel
-
+from app.modules.fakenodo.models import Fakenodo
 
 class FakenodoService(BaseService):
     def __init__(self):
@@ -23,8 +23,16 @@ class FakenodoService(BaseService):
         pass
     
     def get_fakenodo(self, fakenodo_id):
-        #TO-DO: funcion que obtenga un dataset por su id
-        pass
+        dataset = Fakenodo.query.get(fakenodo_id)
+        if not dataset:
+            raise Exception("Dataset not found")
+        response = {
+            "movie_metadata": dataset.movie_metadata,
+            "status": dataset.status,
+            "doi": dataset.doi
+        }
+        return response
+        
     
     def get_doi_versions(self, fakenodo_id):
         #TO-DO: funcion para listar las versiones de un dataset
