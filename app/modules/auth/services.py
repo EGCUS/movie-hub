@@ -1,5 +1,6 @@
 import os
-
+from datetime import datetime, timedelta
+from flask import session
 from flask_login import current_user, login_user
 
 from app.modules.auth.models import User
@@ -9,18 +10,40 @@ from app.modules.profile.repositories import UserProfileRepository
 from core.configuration.configuration import uploads_folder_name
 from core.services.BaseService import BaseService
 
-
 class AuthenticationService(BaseService):
     def __init__(self):
         super().__init__(UserRepository())
         self.user_profile_repository = UserProfileRepository()
+        self.MAX_ATTEMPTS = 3
+        self.BASE_BLOCK_TIME = 30
 
     def login(self, email, password, remember=True):
+        now = datetime.utcnow()
+        attempts = session.get("login_attempts", 0)
+        blocked_until = session.get("blocked_until")
+
+        if blocked_until and now < datetime.fromisoformat(blocked_until):
+            remaining = int((datetime.fromisoformat(blocked_until) - now).total_seconds())
+            return False, 0, remaining
+
         user = self.repository.get_by_email(email)
-        if user is not None and user.check_password(password):
+
+        if user and user.check_password(password):
             login_user(user, remember=remember)
-            return True
-        return False
+            session.pop("login_attempts", None)
+            session.pop("blocked_until", None)
+            return True, self.MAX_ATTEMPTS, 0
+       
+        attempts += 1
+        session["login_attempts"] = attempts
+
+        if attempts >= self.MAX_ATTEMPTS:
+            block_time = self.BASE_BLOCK_TIME * (2 ** (attempts - self.MAX_ATTEMPTS))
+            blocked_until_dt = now + timedelta(seconds=block_time)
+            session["blocked_until"] = blocked_until_dt.isoformat()
+            return False, 0, int(block_time)
+
+        return False, self.MAX_ATTEMPTS - attempts, 0
 
     def is_email_available(self, email: str) -> bool:
         return self.repository.get_by_email(email) is None

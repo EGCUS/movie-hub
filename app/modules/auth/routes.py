@@ -40,10 +40,19 @@ def login():
 
     form = LoginForm()
     if request.method == "POST" and form.validate_on_submit():
-        if authentication_service.login(form.email.data, form.password.data):
+        success, attempts_left, time_blocked = authentication_service.login(
+            form.email.data, form.password.data
+        )
+
+        if success:
             return redirect(url_for("public.index"))
 
-        return render_template("auth/login_form.html", form=form, error="Invalid credentials")
+        if time_blocked > 0:
+            error = f"Too many requests. Please wait {time_blocked} seconds"
+        else:
+            error = f"Invalid credentials. {attempts_left} {"attempts" if attempts_left > 1 else "attempt"} remaining"
+
+        return render_template("auth/login_form.html", form=form, error=error)
 
     return render_template("auth/login_form.html", form=form)
 
