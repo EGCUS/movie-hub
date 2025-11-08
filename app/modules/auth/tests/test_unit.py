@@ -1,4 +1,4 @@
-import pytest
+import pytest, time
 from flask import url_for
 
 from app.modules.auth.repositories import UserRepository
@@ -74,7 +74,6 @@ def test_signup_user_successful(test_client):
     )
     assert response.request.path == url_for("public.index"), "Signup was unsuccessful"
 
-
 def test_service_create_with_profie_success(clean_database):
     data = {"name": "Test", "surname": "Foo", "email": "service_test@example.com", "password": "test1234"}
 
@@ -102,3 +101,36 @@ def test_service_create_with_profile_fail_no_password(clean_database):
 
     assert UserRepository().count() == 0
     assert UserProfileRepository().count() == 0
+
+def test_login_success_resets_attempts(test_client):
+    
+    test_client.post("/login", data=dict(email="test@example.com", password="bad"), follow_redirects=True)
+
+    response = test_client.post(
+        "/login", data=dict(email="test@example.com", password="test1234"), follow_redirects=True
+    )
+
+    assert response.request.path == url_for("public.index")
+    
+    test_client.get("/logout", follow_redirects=True)
+
+def test_login_block_after_max_attempts(test_client):
+    
+    i = 0
+    while i < 3:
+        response = test_client.post(
+            "/login", data=dict(email="test@example.com", password="wrongpassword"), follow_redirects=True
+        )
+        i += 1
+        assert response.request.path == url_for("auth.login")
+        
+
+    response = test_client.post(
+        "/login",
+        data=dict(email="test@example.com", password="test1234"),  # aunque sea correcta, ya está bloqueado
+        follow_redirects=True,
+    )
+
+    assert b"Too many requests" in response.data
+    
+
