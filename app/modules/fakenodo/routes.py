@@ -10,27 +10,22 @@ import uuid
 def index():
     return render_template("fakenodo/index.html")
 
-@fakenodo_bp.route("/fakenodo", methods=["POST"])
-def publish():
-    data = request.get_json()
-    if not data or "title" not in data:
-        return jsonify({"error": "Missing field 'title'"}), 400
-    fake_doi = f"10.1234/moviehub.fake.{uuid.uuid4().hex[:8]}"
+@fakenodo_bp.route("/api/publish/<int:fakenodo_id>", methods=["POST"])
+def publish(fakenodo_id):
+    try:
+        service = FakenodoService()
+        fakenodo = service.publish_fakenodo(fakenodo_id)
 
-    new_node = Fakenodo(
-        movie_metadata=data,
-        status="published",
-        doi=fake_doi
-    )
+        return jsonify({
+            "message": f"Fakenodo {fakenodo_id} published successfully!",
+            "id": fakenodo.id,
+            "status": fakenodo.status,
+            "doi": fakenodo.doi
+        }), 200
 
-    db.session.add(new_node)
-    db.session.commit()
-
-    return jsonify({
-        "message": f"Movie '{data['title']}' published succesfully!",
-        "id": new_node.id,
-        "status": new_node.status,
-        "doi": new_node.doi
-    }), 201
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    except Exception as e:
+        return jsonify({"error": f"Unexpected error: {str(e)}"}), 500
 
     

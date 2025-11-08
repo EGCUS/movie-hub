@@ -5,6 +5,7 @@ from core.services.BaseService import BaseService
 from app.modules.movie.models import MovieDataset
 from app.modules.featuremodel.models import FeatureModel
 from app.modules.fakenodo.models import Fakenodo
+import uuid
 
 class FakenodoService(BaseService):
     def __init__(self):
@@ -19,8 +20,21 @@ class FakenodoService(BaseService):
         pass
     
     def publish_fakenodo(self, fakenodo_id):
-        #TO-DO: funcion que publique un dataset
-        pass
+        fakenodo = self.get_by_id(fakenodo_id)
+        if not fakenodo:
+            raise ValueError(f"Fakenodo with ID {fakenodo_id} not found")
+
+        if fakenodo.status == "published":
+            raise ValueError(f"Fakenodo {fakenodo_id} is already published")
+
+        fake_doi = f"10.1234/moviehub.fake.{uuid.uuid4().hex[:8]}"
+
+        fakenodo.status = "published"
+        fakenodo.doi = fake_doi
+
+        self.update(fakenodo.id, status=fakenodo.status, doi=fakenodo.doi)
+
+        return fakenodo
     
     def get_fakenodo(self, fakenodo_id):
         dataset = Fakenodo.query.get(fakenodo_id)
