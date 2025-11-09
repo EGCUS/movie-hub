@@ -87,13 +87,13 @@ class DataSetSeeder(BaseSeeder):
         fm_meta_data_list = []
         for i in range(12):
             fm_meta = FMMetaData(
-                uvl_filename=f"file{i + 1}.uvl",
+                filename=f"file{i + 1}.uvl",
                 title=f"Feature Model {i + 1}",
                 description=f"Description for feature model {i + 1}",
                 publication_type=PublicationType.SOFTWARE_DOCUMENTATION,
                 publication_doi=f"10.1234/fm{i + 1}",
                 tags="tag1, tag2",
-                uvl_version="1.0",
+                version="1.0",
             )
             fm_meta_data_list.append(fm_meta)
         db.session.add_all(fm_meta_data_list)
