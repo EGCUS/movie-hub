@@ -44,11 +44,15 @@ class BaseDataset(db.Model):
     
     __tablename__ = "base_dataset"
 
+
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
     current_version = db.Column(db.String(20), default="1.0")
     dataset_type = db.Column(db.String(120), nullable=False)
+    files = db.Column(db.JSON, nullable=True)
+    total_size_bytes = db.Column(db.Integer, default=0)
+    total_size_human = db.Column(db.String(120), default="0 B")
 
     ds_meta_data_id = db.Column(db.Integer, db.ForeignKey("ds_meta_data.id"), nullable=False)
 
@@ -72,6 +76,32 @@ class BaseDataset(db.Model):
         "polymorphic_on": dataset_type,
         "polymorphic_identity": "base",
     }
+    
+    def update_files_info(self):
+        """Actualiza la información de archivos y tamaños en la BD"""
+        from app.modules.dataset.services import SizeService
+        
+        # Calcular archivos - SIN usar to_dict() que requiere request
+        files_list = []
+        for fm in self.feature_models:
+            for file in fm.files:
+                files_list.append({
+                    "id": file.id,
+                    "name": file.name,
+                    "checksum": file.checksum,
+                    "size": file.size,
+                    "feature_model_id": file.feature_model_id
+                })
+        
+        # Calcular tamaño total
+        total_bytes = sum(file.size for fm in self.feature_models for file in fm.files)
+        total_human = SizeService().get_human_readable_size(total_bytes)
+        
+        # Actualizar columnas
+        self.files = files_list
+        self.total_size_bytes = total_bytes
+        self.total_size_human = total_human
+
 
     # Métodos genéricos que dependen de la metadata
     def name(self):
