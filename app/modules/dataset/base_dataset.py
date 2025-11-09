@@ -77,7 +77,7 @@ class BaseDataset(db.Model):
     def name(self):
         return self.ds_meta_data.title
 
-    def get_clean_publication_type(self):
+    def get_cleaned_publication_type(self):
         return self.ds_meta_data.publication_type.name.replace("_", " ").title()
 
     def files(self):

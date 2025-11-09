@@ -61,6 +61,7 @@ class DataSetSeeder(BaseSeeder):
         datasets = []
         for i, ds_meta in enumerate(ds_meta_data_list):
             dataset = DataSet(
+                user_id=user1.id,
                 ds_meta_data_id=ds_meta.id,
                 created_at=datetime.now(timezone.utc),
                 dataset_type="uvl",

@@ -38,6 +38,10 @@ def upgrade():
     sa.PrimaryKeyConstraint('id'),
     sa.UniqueConstraint('doi')
     )
+    op.create_table('webhook',
+    sa.Column('id', sa.Integer(), nullable=False),
+    sa.PrimaryKeyConstraint('id')
+    )
     op.create_table('fm_metrics',
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('solver', sa.Text(), nullable=True),
@@ -111,22 +115,6 @@ def upgrade():
     sa.Column('current_version', sa.String(length=20), nullable=True),
     sa.Column('dataset_type', sa.String(length=120), nullable=False),
     sa.Column('ds_meta_data_id', sa.Integer(), nullable=False),
-    sa.Column('title', sa.String(length=255), nullable=False),
-    sa.Column('original_title', sa.String(length=255), nullable=True),
-    sa.Column('year', sa.Integer(), nullable=False),
-    sa.Column('duration', sa.Integer(), nullable=True),
-    sa.Column('country', sa.String(length=255), nullable=True),
-    sa.Column('director', sa.String(length=500), nullable=True),
-    sa.Column('production_company', sa.String(length=500), nullable=True),
-    sa.Column('genre', sa.String(length=255), nullable=True),
-    sa.Column('synopsis', sa.Text(), nullable=True),
-    sa.Column('imdb_rating', sa.Float(), nullable=True),
-    sa.Column('imdb_votes', sa.Integer(), nullable=True),
-    sa.Column('poster_url', sa.String(length=500), nullable=True),
-    sa.Column('poster_local_path', sa.String(length=500), nullable=True),
-    sa.Column('screenplay', sa.JSON(), nullable=True),
-    sa.Column('cast', sa.JSON(), nullable=True),
-    sa.Column('awards', sa.JSON(), nullable=True),
     sa.ForeignKeyConstraint(['ds_meta_data_id'], ['ds_meta_data.id'], ),
     sa.ForeignKeyConstraint(['user_id'], ['user.id'], ),
     sa.PrimaryKeyConstraint('id')

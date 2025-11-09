@@ -109,7 +109,7 @@ class DataSet(BaseDataset):
             "deposition_id": meta.deposition_id if meta else None,
 
             # URLs / DOIs
-            "uvlhub_doi": DataSetService().get_uvlhub_doi(self),
+            "uvlhub_doi": DataSetService().get_doi(self),
             "download": f'{request.host_url.rstrip("/")}/dataset/download/{self.id}',
 
             # Archivos
@@ -190,8 +190,8 @@ class DOIMapping(db.Model):
 #     def files(self):
 #         return [file for fm in self.feature_models for file in fm.files]
 
-#     def get_cleaned_publication_type(self):
-#         return self.ds_meta_data.publication_type.name.replace("_", " ").title()
+# def get_cleaned_publication_type(self):
+#     return self.ds_meta_data.publication_type.name.replace("_", " ").title()
 
 #     def get_zenodo_url(self):
 #         return f"https://zenodo.org/record/{self.ds_meta_data.deposition_id}" if self.ds_meta_data.dataset_doi else None
@@ -207,10 +207,10 @@ class DOIMapping(db.Model):
 
 #         return SizeService().get_human_readable_size(self.get_file_total_size())
 
-#     def get_uvlhub_doi(self):
+#     def get_doi(self):
 #         from app.modules.dataset.services import DataSetService
 
-#         return DataSetService().get_uvlhub_doi(self)
+#         return DataSetService().get_doi(self)
 
 #     def to_dict(self):
 #         return {
@@ -224,7 +224,7 @@ class DOIMapping(db.Model):
 #             "publication_doi": self.ds_meta_data.publication_doi,
 #             "dataset_doi": self.ds_meta_data.dataset_doi,
 #             "tags": self.ds_meta_data.tags.split(",") if self.ds_meta_data.tags else [],
-#             "url": self.get_uvlhub_doi(),
+#             "url": self.get_doi(),
 #             "download": f'{request.host_url.rstrip("/")}/dataset/download/{self.id}',
 #             "zenodo": self.get_zenodo_url(),
 #             "files": [file.to_dict() for fm in self.feature_models for file in fm.files],
