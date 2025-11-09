@@ -1,8 +1,8 @@
-"""first migration
+"""Refactor de basedataset
 
-Revision ID: 001
-Revises: 
-Create Date: 2024-09-08 16:50:20.326640
+Revision ID: 53250b584934
+Revises: 75c4ef180d61
+Create Date: 2025-11-09 01:30:19.087552
 
 """
 from alembic import op
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision = '001'
+revision = '53250b584934'
 down_revision = None
 branch_labels = None
 depends_on = None
@@ -30,6 +30,18 @@ def upgrade():
     sa.Column('number_of_features', sa.String(length=120), nullable=True),
     sa.PrimaryKeyConstraint('id')
     )
+    op.create_table('fakenodo',
+    sa.Column('id', sa.Integer(), nullable=False),
+    sa.Column('movie_metadata', sa.JSON(), nullable=False),
+    sa.Column('status', sa.String(length=50), nullable=True),
+    sa.Column('doi', sa.String(length=250), nullable=True),
+    sa.PrimaryKeyConstraint('id'),
+    sa.UniqueConstraint('doi')
+    )
+    op.create_table('webhook',
+    sa.Column('id', sa.Integer(), nullable=False),
+    sa.PrimaryKeyConstraint('id')
+    )
     op.create_table('fm_metrics',
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('solver', sa.Text(), nullable=True),
@@ -44,23 +56,19 @@ def upgrade():
     sa.PrimaryKeyConstraint('id'),
     sa.UniqueConstraint('email')
     )
-    op.create_table('webhook',
-    sa.Column('id', sa.Integer(), nullable=False),
-    sa.PrimaryKeyConstraint('id')
-    )
     op.create_table('zenodo',
     sa.Column('id', sa.Integer(), nullable=False),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_table('ds_meta_data',
     sa.Column('id', sa.Integer(), nullable=False),
-    sa.Column('deposition_id', sa.Integer(), nullable=True),
     sa.Column('title', sa.String(length=120), nullable=False),
     sa.Column('description', sa.Text(), nullable=False),
     sa.Column('publication_type', sa.Enum('NONE', 'ANNOTATION_COLLECTION', 'BOOK', 'BOOK_SECTION', 'CONFERENCE_PAPER', 'DATA_MANAGEMENT_PLAN', 'JOURNAL_ARTICLE', 'PATENT', 'PREPRINT', 'PROJECT_DELIVERABLE', 'PROJECT_MILESTONE', 'PROPOSAL', 'REPORT', 'SOFTWARE_DOCUMENTATION', 'TAXONOMIC_TREATMENT', 'TECHNICAL_NOTE', 'THESIS', 'WORKING_PAPER', 'OTHER', name='publicationtype'), nullable=False),
     sa.Column('publication_doi', sa.String(length=120), nullable=True),
     sa.Column('dataset_doi', sa.String(length=120), nullable=True),
     sa.Column('tags', sa.String(length=120), nullable=True),
+    sa.Column('deposition_id', sa.Integer(), nullable=True),
     sa.Column('ds_metrics_id', sa.Integer(), nullable=True),
     sa.ForeignKeyConstraint(['ds_metrics_id'], ['ds_metrics.id'], ),
     sa.PrimaryKeyConstraint('id')
@@ -100,11 +108,13 @@ def upgrade():
     sa.ForeignKeyConstraint(['fm_meta_data_id'], ['fm_meta_data.id'], ),
     sa.PrimaryKeyConstraint('id')
     )
-    op.create_table('data_set',
+    op.create_table('base_dataset',
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('user_id', sa.Integer(), nullable=False),
-    sa.Column('ds_meta_data_id', sa.Integer(), nullable=False),
     sa.Column('created_at', sa.DateTime(), nullable=False),
+    sa.Column('current_version', sa.String(length=20), nullable=True),
+    sa.Column('dataset_type', sa.String(length=120), nullable=False),
+    sa.Column('ds_meta_data_id', sa.Integer(), nullable=False),
     sa.ForeignKeyConstraint(['ds_meta_data_id'], ['ds_meta_data.id'], ),
     sa.ForeignKeyConstraint(['user_id'], ['user.id'], ),
     sa.PrimaryKeyConstraint('id')
@@ -115,7 +125,7 @@ def upgrade():
     sa.Column('dataset_id', sa.Integer(), nullable=True),
     sa.Column('download_date', sa.DateTime(), nullable=False),
     sa.Column('download_cookie', sa.String(length=36), nullable=False),
-    sa.ForeignKeyConstraint(['dataset_id'], ['data_set.id'], ),
+    sa.ForeignKeyConstraint(['dataset_id'], ['base_dataset.id'], ),
     sa.ForeignKeyConstraint(['user_id'], ['user.id'], ),
     sa.PrimaryKeyConstraint('id')
     )
@@ -125,7 +135,7 @@ def upgrade():
     sa.Column('dataset_id', sa.Integer(), nullable=True),
     sa.Column('view_date', sa.DateTime(), nullable=False),
     sa.Column('view_cookie', sa.String(length=36), nullable=False),
-    sa.ForeignKeyConstraint(['dataset_id'], ['data_set.id'], ),
+    sa.ForeignKeyConstraint(['dataset_id'], ['base_dataset.id'], ),
     sa.ForeignKeyConstraint(['user_id'], ['user.id'], ),
     sa.PrimaryKeyConstraint('id')
     )
@@ -133,8 +143,16 @@ def upgrade():
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('data_set_id', sa.Integer(), nullable=False),
     sa.Column('fm_meta_data_id', sa.Integer(), nullable=True),
-    sa.ForeignKeyConstraint(['data_set_id'], ['data_set.id'], ),
+    sa.ForeignKeyConstraint(['data_set_id'], ['base_dataset.id'], ),
     sa.ForeignKeyConstraint(['fm_meta_data_id'], ['fm_meta_data.id'], ),
+    sa.PrimaryKeyConstraint('id')
+    )
+    op.create_table('version',
+    sa.Column('id', sa.Integer(), nullable=False),
+    sa.Column('dataset_id', sa.Integer(), nullable=False),
+    sa.Column('version_number', sa.String(length=20), nullable=False),
+    sa.Column('created_at', sa.DateTime(), nullable=True),
+    sa.ForeignKeyConstraint(['dataset_id'], ['base_dataset.id'], ),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_table('file',
@@ -174,18 +192,19 @@ def downgrade():
     op.drop_table('file_view_record')
     op.drop_table('file_download_record')
     op.drop_table('file')
+    op.drop_table('version')
     op.drop_table('feature_model')
     op.drop_table('ds_view_record')
     op.drop_table('ds_download_record')
-    op.drop_table('data_set')
+    op.drop_table('base_dataset')
     op.drop_table('author')
     op.drop_table('user_profile')
     op.drop_table('fm_meta_data')
     op.drop_table('ds_meta_data')
     op.drop_table('zenodo')
-    op.drop_table('webhook')
     op.drop_table('user')
     op.drop_table('fm_metrics')
+    op.drop_table('fakenodo')
     op.drop_table('ds_metrics')
     op.drop_table('doi_mapping')
     # ### end Alembic commands ###
