@@ -6,6 +6,7 @@ from dotenv import load_dotenv
 from app import db
 from app.modules.auth.models import User
 from app.modules.dataset.models import Author, DataSet, DSMetaData, DSMetrics, PublicationType
+from app.modules.dataset.base_dataset import Version
 from app.modules.featuremodel.models import FeatureModel, FMMetaData
 from app.modules.hubfile.models import Hubfile
 from core.seeders.BaseSeeder import BaseSeeder
@@ -61,13 +62,25 @@ class DataSetSeeder(BaseSeeder):
         datasets = []
         for i, ds_meta in enumerate(ds_meta_data_list):
             dataset = DataSet(
-                user_id=user1.id,
+                user_id=user1.id if i % 2 == 0 else user2.id,
                 ds_meta_data_id=ds_meta.id,
                 created_at=datetime.now(timezone.utc),
                 dataset_type="uvl",
             )
             datasets.append(dataset)
         db.session.add_all(datasets)
+        db.session.flush()
+
+        # 🔹 NUEVO: Crear versiones iniciales para cada dataset
+        versions = []
+        for dataset in datasets:
+            version = Version(
+                dataset_id=dataset.id,
+                version_number="1.0",
+                created_at=datetime.now(timezone.utc)
+            )
+            versions.append(version)
+        db.session.add_all(versions)
         db.session.flush()
 
         # 🔹 Crear metadatos de FeatureModels
@@ -97,3 +110,58 @@ class DataSetSeeder(BaseSeeder):
             )
             fm_authors.append(fm_author)
         db.session.add_all(fm_authors)
+        db.session.flush()
+
+        # 🔹 Crear FeatureModels (3 por dataset)
+        feature_models = []
+        for i in range(12):
+            fm = FeatureModel(
+                data_set_id=datasets[i // 3].id,
+                fm_meta_data_id=fm_meta_data_list[i].id
+            )
+            feature_models.append(fm)
+        db.session.add_all(feature_models)
+        db.session.flush()
+
+        # 🔹 NUEVO: Crear archivos físicos y registros Hubfile
+        load_dotenv()
+        working_dir = os.getenv("WORKING_DIR", "")
+        src_folder = os.path.join(working_dir, "app", "modules", "dataset", "uvl_examples")
+        
+        hubfiles = []
+        for i, feature_model in enumerate(feature_models):
+            file_name = f"file{i + 1}.uvl"
+            
+            # Obtener el dataset y user_id correspondiente
+            dataset = datasets[i // 3]
+            user_id = dataset.user_id
+            
+            # Crear directorio destino
+            dest_folder = os.path.join(working_dir, "uploads", f"user_{user_id}", f"dataset_{dataset.id}")
+            os.makedirs(dest_folder, exist_ok=True)
+            
+            # Copiar archivo
+            src_file = os.path.join(src_folder, file_name)
+            dest_file = os.path.join(dest_folder, file_name)
+            shutil.copy(src_file, dest_file)
+            
+            # Crear registro Hubfile
+            hubfile = Hubfile(
+                name=file_name,
+                checksum=f"checksum{i + 1}",
+                size=os.path.getsize(dest_file),
+                feature_model_id=feature_model.id,
+            )
+            hubfiles.append(hubfile)
+        
+        db.session.add_all(hubfiles)
+        db.session.flush()
+
+        # 🔹 NUEVO: Actualizar información de archivos en cada dataset
+        # Esto popula las columnas: files (JSON), total_size_bytes, total_size_human
+        for dataset in datasets:
+            dataset.update_files_info()
+        
+        # 🔹 Commit final
+        db.session.commit()
+        

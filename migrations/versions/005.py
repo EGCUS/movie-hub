@@ -115,6 +115,10 @@ def upgrade():
     sa.Column('current_version', sa.String(length=20), nullable=True),
     sa.Column('dataset_type', sa.String(length=120), nullable=False),
     sa.Column('ds_meta_data_id', sa.Integer(), nullable=False),
+    sa.Column('files', sa.JSON(), nullable=True),
+    sa.Column('total_size_bytes', sa.Integer(), nullable=False),
+    sa.Column('total_size_human', sa.String(length=120), nullable=False),
+    
     sa.ForeignKeyConstraint(['ds_meta_data_id'], ['ds_meta_data.id'], ),
     sa.ForeignKeyConstraint(['user_id'], ['user.id'], ),
     sa.PrimaryKeyConstraint('id')

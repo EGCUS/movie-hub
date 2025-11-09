@@ -131,7 +131,7 @@ class DataSet(BaseDataset):
 class DSDownloadRecord(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=True)
-    dataset_id = db.Column(db.Integer, db.ForeignKey(DataSet.__tablename__+".id"))
+    dataset_id = db.Column(db.Integer, db.ForeignKey("base_dataset.id"))
     download_date = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
     download_cookie = db.Column(db.String(36), nullable=False)  # Assuming UUID4 strings
 
@@ -147,7 +147,7 @@ class DSDownloadRecord(db.Model):
 class DSViewRecord(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=True)
-    dataset_id = db.Column(db.Integer, db.ForeignKey(DataSet.__tablename__+".id"))
+    dataset_id = db.Column(db.Integer, db.ForeignKey("base_dataset.id"))
     view_date = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
     view_cookie = db.Column(db.String(36), nullable=False)  # Assuming UUID4 strings
 

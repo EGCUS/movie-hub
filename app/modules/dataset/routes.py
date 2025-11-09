@@ -249,7 +249,7 @@ def subdomain_index(doi):
         abort(404)
 
     # Get dataset
-    dataset = ds_meta_data.data_set
+    dataset = ds_meta_data.dataset
 
     # Save the cookie to the user's browser
     user_cookie = ds_view_record_service.create_cookie(dataset=dataset)
