@@ -10,7 +10,7 @@ import uuid
 def index():
     return render_template("fakenodo/index.html")
 
-@fakenodo_bp.route("/api/publish/<int:fakenodo_id>", methods=["POST"])
+@fakenodo_bp.route("/fakenodo/publish/<int:fakenodo_id>", methods=["POST"])
 def publish(fakenodo_id):
     try:
         service = FakenodoService()
@@ -28,4 +28,11 @@ def publish(fakenodo_id):
     except Exception as e:
         return jsonify({"error": f"Unexpected error: {str(e)}"}), 500
 
-    
+@fakenodo_bp.route("/fakenodo/<int:fakenodo_id>", methods=["GET"])
+def getOne(fakenodo_id):
+    try:
+        service = FakenodoService()
+        data = service.get_fakenodo(fakenodo_id)
+        return jsonify(data), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 404
