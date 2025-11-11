@@ -1,8 +1,6 @@
-from enum import Enum
 from app import db
 from datetime import datetime
 from sqlalchemy import Enum as SQLAlchemyEnum
-from flask import request
 from sqlalchemy.ext.declarative import declared_attr
 
 
