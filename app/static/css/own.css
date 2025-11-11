@@ -108,8 +108,8 @@
 }
 
 .doi_button {
-    background-color: #147ABB;
-    border-color: #147ABB;
+    background-color: #bb1414;
+    border-color: #bb1414;
     color: white;
     display: flex;
     align-items: center;
@@ -119,8 +119,8 @@
 }
 
 .doi_button:hover {
-    background-color: #075585;
-    border-color: #075585;
+    background-color: #5c1a1a;
+    border-color: #5c1a1a;
 }
 
 .button_doi_id {
@@ -134,12 +134,12 @@
 }
 
 .doi_button:hover .button_doi_id {
-    background-color: #075585;
+    background-color: #5c1a1a;
     color: white;
 }
 
 .doi_text {
-    background-color: #147ABB;
+    background-color: #bb1414;
     padding: 10px;
     display: flex;
     align-items: center;
@@ -147,17 +147,17 @@
 }
 
 .doi_button:hover .doi_text {
-    background-color: #4ebbff;
+    background-color: #ff4e4e;
     color: white;
 }
 
 .doi_button:active .doi_text {
-    background-color: #4ebbff;
+    background-color: #ff4e4e;
     color: white;
 }
 
 .doi_button:active .button_doi_id {
-    background-color: #075585;
+    background-color: #5c1a1a;
     color: white;
 }
 

@@ -1,11 +1,14 @@
+# app/modules/dataset/seeders.py
+
 import os
 import shutil
-from datetime import datetime, timezone
-
+from datetime import datetime, timedelta, timezone
 from dotenv import load_dotenv
 
+from app import db
 from app.modules.auth.models import User
 from app.modules.dataset.models import Author, DataSet, DSMetaData, DSMetrics, PublicationType
+from app.modules.dataset.base_dataset import Version
 from app.modules.featuremodel.models import FeatureModel, FMMetaData
 from app.modules.hubfile.models import Hubfile
 from core.seeders.BaseSeeder import BaseSeeder
@@ -13,112 +16,161 @@ from core.seeders.BaseSeeder import BaseSeeder
 
 class DataSetSeeder(BaseSeeder):
 
-    priority = 2  # Lower priority
+    priority = 2
 
     def run(self):
-        # Retrieve users
+        # 🔹 Recuperar usuarios existentes
         user1 = User.query.filter_by(email="user1@example.com").first()
         user2 = User.query.filter_by(email="user2@example.com").first()
-
         if not user1 or not user2:
             raise Exception("Users not found. Please seed users first.")
 
-        # Create DSMetrics instance
+        # 🔹 Crear métricas
         ds_metrics = DSMetrics(number_of_models="5", number_of_features="50")
-        seeded_ds_metrics = self.seed([ds_metrics])[0]
+        db.session.add(ds_metrics)
+        db.session.flush()
 
-        # Create DSMetaData instances
-        ds_meta_data_list = [
-            DSMetaData(
-                deposition_id=1 + i,
-                title=f"Sample dataset {i+1}",
-                description=f"Description for dataset {i+1}",
+        # 🔹 Crear metadatos de datasets
+        ds_meta_data_list = []
+        for i in range(4):
+            ds_meta = DSMetaData(
+                deposition_id=i + 1,
+                title=f"Sample dataset {i + 1}",
+                description=f"Description for dataset {i + 1}",
                 publication_type=PublicationType.DATA_MANAGEMENT_PLAN,
-                publication_doi=f"10.1234/dataset{i+1}",
-                dataset_doi=f"10.1234/dataset{i+1}",
+                publication_doi=f"10.1234/dataset{i + 1}",
+                dataset_doi=f"10.1234/dataset{i + 1}",
                 tags="tag1, tag2",
-                ds_metrics_id=seeded_ds_metrics.id,
+                ds_metrics_id=ds_metrics.id,
             )
-            for i in range(4)
-        ]
-        seeded_ds_meta_data = self.seed(ds_meta_data_list)
+            ds_meta_data_list.append(ds_meta)
+        db.session.add_all(ds_meta_data_list)
+        db.session.flush()
 
-        # Create Author instances and associate with DSMetaData
-        authors = [
-            Author(
-                name=f"Author {i+1}",
-                affiliation=f"Affiliation {i+1}",
+        # 🔹 Crear autores
+        authors = []
+        for i, ds_meta in enumerate(ds_meta_data_list):
+            author = Author(
+                name=f"Author {i + 1}",
+                affiliation=f"Affiliation {i + 1}",
                 orcid=f"0000-0000-0000-000{i}",
-                ds_meta_data_id=seeded_ds_meta_data[i % 4].id,
+                ds_meta_data_id=ds_meta.id,
             )
-            for i in range(4)
-        ]
-        self.seed(authors)
+            authors.append(author)
+        db.session.add_all(authors)
+        db.session.flush()
 
-        # Create DataSet instances
-        datasets = [
-            DataSet(
+        # 🔹 Crear datasets
+        datasets = []
+        for i, ds_meta in enumerate(ds_meta_data_list):
+            dataset = DataSet(
                 user_id=user1.id if i % 2 == 0 else user2.id,
-                ds_meta_data_id=seeded_ds_meta_data[i].id,
-                created_at=datetime.now(timezone.utc),
+                ds_meta_data_id=ds_meta.id,
+                created_at=datetime.now(timezone.utc) - timedelta(days=10 - i),
+                dataset_type="uvl",
             )
-            for i in range(4)
-        ]
-        seeded_datasets = self.seed(datasets)
+            datasets.append(dataset)
+        db.session.add_all(datasets)
+        db.session.flush()
 
-        # Assume there are 12 UVL files, create corresponding FMMetaData and FeatureModel
-        fm_meta_data_list = [
-            FMMetaData(
-                uvl_filename=f"file{i+1}.uvl",
-                title=f"Feature Model {i+1}",
-                description=f"Description for feature model {i+1}",
+        # 🔹 Crear múltiples versiones por dataset
+        all_versions = []
+        for dataset in datasets:
+            version_list = []
+            version_dates = [
+                datetime.now(timezone.utc) - timedelta(days=5),
+                datetime.now(timezone.utc) - timedelta(days=2),
+                datetime.now(timezone.utc),
+            ]
+            version_numbers = ["1.0", "1.1", "2.0"]
+
+            for vn, vd in zip(version_numbers, version_dates):
+                v = Version(
+                    dataset_id=dataset.id,
+                    version_number=vn,
+                    created_at=vd
+                )
+                version_list.append(v)
+
+            all_versions.extend(version_list)
+
+            # Guardar la última versión como la actual
+            dataset.current_version = version_numbers[-1]
+
+        db.session.add_all(all_versions)
+        db.session.flush()
+
+        # 🔹 Crear metadatos de FeatureModels
+        fm_meta_data_list = []
+        for i in range(12):
+            fm_meta = FMMetaData(
+                filename=f"file{i + 1}.uvl",
+                title=f"Feature Model {i + 1}",
+                description=f"Description for feature model {i + 1}",
                 publication_type=PublicationType.SOFTWARE_DOCUMENTATION,
-                publication_doi=f"10.1234/fm{i+1}",
+                publication_doi=f"10.1234/fm{i + 1}",
                 tags="tag1, tag2",
-                uvl_version="1.0",
+                version="1.0",
             )
-            for i in range(12)
-        ]
-        seeded_fm_meta_data = self.seed(fm_meta_data_list)
+            fm_meta_data_list.append(fm_meta)
+        db.session.add_all(fm_meta_data_list)
+        db.session.flush()
 
-        # Create Author instances and associate with FMMetaData
-        fm_authors = [
-            Author(
-                name=f"Author {i+5}",
-                affiliation=f"Affiliation {i+5}",
-                orcid=f"0000-0000-0000-000{i+5}",
-                fm_meta_data_id=seeded_fm_meta_data[i].id,
+        # 🔹 Crear autores de FeatureModels
+        fm_authors = []
+        for i, fm_meta in enumerate(fm_meta_data_list):
+            fm_author = Author(
+                name=f"Author {i + 5}",
+                affiliation=f"Affiliation {i + 5}",
+                orcid=f"0000-0000-0000-000{i + 5}",
+                fm_meta_data_id=fm_meta.id,
             )
-            for i in range(12)
-        ]
-        self.seed(fm_authors)
+            fm_authors.append(fm_author)
+        db.session.add_all(fm_authors)
+        db.session.flush()
 
-        feature_models = [
-            FeatureModel(data_set_id=seeded_datasets[i // 3].id, fm_meta_data_id=seeded_fm_meta_data[i].id)
-            for i in range(12)
-        ]
-        seeded_feature_models = self.seed(feature_models)
+        # 🔹 Crear FeatureModels (3 por dataset)
+        feature_models = []
+        for i in range(12):
+            fm = FeatureModel(
+                data_set_id=datasets[i // 3].id,
+                fm_meta_data_id=fm_meta_data_list[i].id
+            )
+            feature_models.append(fm)
+        db.session.add_all(feature_models)
+        db.session.flush()
 
-        # Create files, associate them with FeatureModels and copy files
+        # 🔹 Crear archivos físicos y registros Hubfile
         load_dotenv()
         working_dir = os.getenv("WORKING_DIR", "")
         src_folder = os.path.join(working_dir, "app", "modules", "dataset", "uvl_examples")
-        for i in range(12):
-            file_name = f"file{i+1}.uvl"
-            feature_model = seeded_feature_models[i]
-            dataset = next(ds for ds in seeded_datasets if ds.id == feature_model.data_set_id)
+        
+        hubfiles = []
+        for i, feature_model in enumerate(feature_models):
+            file_name = f"file{i + 1}.uvl"
+            dataset = datasets[i // 3]
             user_id = dataset.user_id
-
             dest_folder = os.path.join(working_dir, "uploads", f"user_{user_id}", f"dataset_{dataset.id}")
             os.makedirs(dest_folder, exist_ok=True)
-            shutil.copy(os.path.join(src_folder, file_name), dest_folder)
 
-            file_path = os.path.join(dest_folder, file_name)
+            src_file = os.path.join(src_folder, file_name)
+            dest_file = os.path.join(dest_folder, file_name)
+            shutil.copy(src_file, dest_file)
 
-            uvl_file = Hubfile(
+            hubfile = Hubfile(
                 name=file_name,
-                checksum=f"checksum{i+1}",
-                size=os.path.getsize(file_path),
+                checksum=f"checksum{i + 1}",
+                size=os.path.getsize(dest_file),
                 feature_model_id=feature_model.id,
             )
-            self.seed([uvl_file])
+            hubfiles.append(hubfile)
+        
+        db.session.add_all(hubfiles)
+        db.session.flush()
+
+        # 🔹 Actualizar info de archivos
+        for dataset in datasets:
+            dataset.update_files_info()
+        
+        # 🔹 Commit final
+        db.session.commit()

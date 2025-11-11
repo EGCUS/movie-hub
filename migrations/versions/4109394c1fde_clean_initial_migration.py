@@ -1,8 +1,8 @@
-"""first migration
+"""Clean initial migration
 
-Revision ID: 001
+Revision ID: 4109394c1fde
 Revises: 
-Create Date: 2024-09-08 16:50:20.326640
+Create Date: 2025-11-11 12:54:44.818681
 
 """
 from alembic import op
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision = '001'
+revision = '4109394c1fde'
 down_revision = None
 branch_labels = None
 depends_on = None
@@ -44,36 +44,32 @@ def upgrade():
     sa.PrimaryKeyConstraint('id'),
     sa.UniqueConstraint('email')
     )
-    op.create_table('webhook',
-    sa.Column('id', sa.Integer(), nullable=False),
-    sa.PrimaryKeyConstraint('id')
-    )
     op.create_table('zenodo',
     sa.Column('id', sa.Integer(), nullable=False),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_table('ds_meta_data',
     sa.Column('id', sa.Integer(), nullable=False),
-    sa.Column('deposition_id', sa.Integer(), nullable=True),
     sa.Column('title', sa.String(length=120), nullable=False),
     sa.Column('description', sa.Text(), nullable=False),
     sa.Column('publication_type', sa.Enum('NONE', 'ANNOTATION_COLLECTION', 'BOOK', 'BOOK_SECTION', 'CONFERENCE_PAPER', 'DATA_MANAGEMENT_PLAN', 'JOURNAL_ARTICLE', 'PATENT', 'PREPRINT', 'PROJECT_DELIVERABLE', 'PROJECT_MILESTONE', 'PROPOSAL', 'REPORT', 'SOFTWARE_DOCUMENTATION', 'TAXONOMIC_TREATMENT', 'TECHNICAL_NOTE', 'THESIS', 'WORKING_PAPER', 'OTHER', name='publicationtype'), nullable=False),
     sa.Column('publication_doi', sa.String(length=120), nullable=True),
     sa.Column('dataset_doi', sa.String(length=120), nullable=True),
     sa.Column('tags', sa.String(length=120), nullable=True),
+    sa.Column('deposition_id', sa.Integer(), nullable=True),
     sa.Column('ds_metrics_id', sa.Integer(), nullable=True),
     sa.ForeignKeyConstraint(['ds_metrics_id'], ['ds_metrics.id'], ),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_table('fm_meta_data',
     sa.Column('id', sa.Integer(), nullable=False),
-    sa.Column('uvl_filename', sa.String(length=120), nullable=False),
+    sa.Column('filename', sa.String(length=120), nullable=False),
     sa.Column('title', sa.String(length=120), nullable=False),
     sa.Column('description', sa.Text(), nullable=False),
     sa.Column('publication_type', sa.Enum('NONE', 'ANNOTATION_COLLECTION', 'BOOK', 'BOOK_SECTION', 'CONFERENCE_PAPER', 'DATA_MANAGEMENT_PLAN', 'JOURNAL_ARTICLE', 'PATENT', 'PREPRINT', 'PROJECT_DELIVERABLE', 'PROJECT_MILESTONE', 'PROPOSAL', 'REPORT', 'SOFTWARE_DOCUMENTATION', 'TAXONOMIC_TREATMENT', 'TECHNICAL_NOTE', 'THESIS', 'WORKING_PAPER', 'OTHER', name='publicationtype'), nullable=False),
     sa.Column('publication_doi', sa.String(length=120), nullable=True),
     sa.Column('tags', sa.String(length=120), nullable=True),
-    sa.Column('uvl_version', sa.String(length=120), nullable=True),
+    sa.Column('version', sa.String(length=120), nullable=True),
     sa.Column('fm_metrics_id', sa.Integer(), nullable=True),
     sa.ForeignKeyConstraint(['fm_metrics_id'], ['fm_metrics.id'], ),
     sa.PrimaryKeyConstraint('id')
@@ -100,11 +96,15 @@ def upgrade():
     sa.ForeignKeyConstraint(['fm_meta_data_id'], ['fm_meta_data.id'], ),
     sa.PrimaryKeyConstraint('id')
     )
-    op.create_table('data_set',
+    op.create_table('base_dataset',
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('user_id', sa.Integer(), nullable=False),
-    sa.Column('ds_meta_data_id', sa.Integer(), nullable=False),
     sa.Column('created_at', sa.DateTime(), nullable=False),
+    sa.Column('current_version', sa.String(length=20), nullable=True),
+    sa.Column('dataset_type', sa.String(length=120), nullable=False),
+    sa.Column('total_size_bytes', sa.Integer(), nullable=True),
+    sa.Column('total_size_human', sa.String(length=120), nullable=True),
+    sa.Column('ds_meta_data_id', sa.Integer(), nullable=False),
     sa.ForeignKeyConstraint(['ds_meta_data_id'], ['ds_meta_data.id'], ),
     sa.ForeignKeyConstraint(['user_id'], ['user.id'], ),
     sa.PrimaryKeyConstraint('id')
@@ -115,7 +115,7 @@ def upgrade():
     sa.Column('dataset_id', sa.Integer(), nullable=True),
     sa.Column('download_date', sa.DateTime(), nullable=False),
     sa.Column('download_cookie', sa.String(length=36), nullable=False),
-    sa.ForeignKeyConstraint(['dataset_id'], ['data_set.id'], ),
+    sa.ForeignKeyConstraint(['dataset_id'], ['base_dataset.id'], ),
     sa.ForeignKeyConstraint(['user_id'], ['user.id'], ),
     sa.PrimaryKeyConstraint('id')
     )
@@ -125,16 +125,36 @@ def upgrade():
     sa.Column('dataset_id', sa.Integer(), nullable=True),
     sa.Column('view_date', sa.DateTime(), nullable=False),
     sa.Column('view_cookie', sa.String(length=36), nullable=False),
-    sa.ForeignKeyConstraint(['dataset_id'], ['data_set.id'], ),
+    sa.ForeignKeyConstraint(['dataset_id'], ['base_dataset.id'], ),
     sa.ForeignKeyConstraint(['user_id'], ['user.id'], ),
+    sa.PrimaryKeyConstraint('id')
+    )
+    op.create_table('fakenodo',
+    sa.Column('id', sa.Integer(), nullable=False),
+    sa.Column('status', sa.String(length=50), nullable=True),
+    sa.Column('dataset_id', sa.Integer(), nullable=False),
+    sa.ForeignKeyConstraint(['dataset_id'], ['base_dataset.id'], ),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_table('feature_model',
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('data_set_id', sa.Integer(), nullable=False),
     sa.Column('fm_meta_data_id', sa.Integer(), nullable=True),
-    sa.ForeignKeyConstraint(['data_set_id'], ['data_set.id'], ),
+    sa.ForeignKeyConstraint(['data_set_id'], ['base_dataset.id'], ),
     sa.ForeignKeyConstraint(['fm_meta_data_id'], ['fm_meta_data.id'], ),
+    sa.PrimaryKeyConstraint('id')
+    )
+    op.create_table('movie_dataset',
+    sa.Column('id', sa.Integer(), nullable=False),
+    sa.ForeignKeyConstraint(['id'], ['base_dataset.id'], ),
+    sa.PrimaryKeyConstraint('id')
+    )
+    op.create_table('version',
+    sa.Column('id', sa.Integer(), nullable=False),
+    sa.Column('dataset_id', sa.Integer(), nullable=False),
+    sa.Column('version_number', sa.String(length=20), nullable=False),
+    sa.Column('created_at', sa.DateTime(), nullable=True),
+    sa.ForeignKeyConstraint(['dataset_id'], ['base_dataset.id'], ),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_table('file',
@@ -144,6 +164,28 @@ def upgrade():
     sa.Column('size', sa.Integer(), nullable=False),
     sa.Column('feature_model_id', sa.Integer(), nullable=False),
     sa.ForeignKeyConstraint(['feature_model_id'], ['feature_model.id'], ),
+    sa.PrimaryKeyConstraint('id')
+    )
+    op.create_table('movie',
+    sa.Column('id', sa.Integer(), nullable=False),
+    sa.Column('movie_dataset_id', sa.Integer(), nullable=False),
+    sa.Column('title', sa.String(length=255), nullable=False),
+    sa.Column('original_title', sa.String(length=255), nullable=True),
+    sa.Column('year', sa.Integer(), nullable=False),
+    sa.Column('duration', sa.Integer(), nullable=True),
+    sa.Column('country', sa.String(length=255), nullable=True),
+    sa.Column('director', sa.String(length=500), nullable=True),
+    sa.Column('production_company', sa.String(length=500), nullable=True),
+    sa.Column('genre', sa.String(length=255), nullable=True),
+    sa.Column('synopsis', sa.Text(), nullable=True),
+    sa.Column('imdb_rating', sa.Float(), nullable=True),
+    sa.Column('imdb_votes', sa.Integer(), nullable=True),
+    sa.Column('poster_url', sa.String(length=500), nullable=True),
+    sa.Column('poster_local_path', sa.String(length=500), nullable=True),
+    sa.Column('screenplay', sa.JSON(), nullable=True),
+    sa.Column('cast', sa.JSON(), nullable=True),
+    sa.Column('awards', sa.JSON(), nullable=True),
+    sa.ForeignKeyConstraint(['movie_dataset_id'], ['movie_dataset.id'], ),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_table('file_download_record',
@@ -173,17 +215,20 @@ def downgrade():
     # ### commands auto generated by Alembic - please adjust! ###
     op.drop_table('file_view_record')
     op.drop_table('file_download_record')
+    op.drop_table('movie')
     op.drop_table('file')
+    op.drop_table('version')
+    op.drop_table('movie_dataset')
     op.drop_table('feature_model')
+    op.drop_table('fakenodo')
     op.drop_table('ds_view_record')
     op.drop_table('ds_download_record')
-    op.drop_table('data_set')
+    op.drop_table('base_dataset')
     op.drop_table('author')
     op.drop_table('user_profile')
     op.drop_table('fm_meta_data')
     op.drop_table('ds_meta_data')
     op.drop_table('zenodo')
-    op.drop_table('webhook')
     op.drop_table('user')
     op.drop_table('fm_metrics')
     op.drop_table('ds_metrics')
