@@ -1,0 +1,121 @@
+2025-11-10 18:34:16,095 - app.modules.fakenodo.routes - ERROR - Error creating MovieDataset in Fakenodo.
+Traceback (most recent call last):
+  File "/home/dar-o-rom-n/Escritorio/proyecto/movie-hub/app/modules/fakenodo/services.py", line 27, in create_fakenodo
+    deposition = self.repository.create_new_movie(metadata=dataset_metadata,
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/dar-o-rom-n/Escritorio/proyecto/movie-hub/app/modules/fakenodo/repositories.py", line 10, in create_new_movie
+    return self.create(dataset=metadata, doi=doi)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/dar-o-rom-n/Escritorio/proyecto/movie-hub/core/repositories/BaseRepository.py", line 14, in create
+    instance: T = self.model(**kwargs)
+                  ^^^^^^^^^^^^^^^^^^^^
+  File "<string>", line 4, in __init__
+  File "/home/dar-o-rom-n/Escritorio/proyecto/movie-hub/venv/lib/python3.12/site-packages/sqlalchemy/orm/state.py", line 571, in _initialize_instance
+    with util.safe_reraise():
+  File "/home/dar-o-rom-n/Escritorio/proyecto/movie-hub/venv/lib/python3.12/site-packages/sqlalchemy/util/langhelpers.py", line 224, in __exit__
+    raise exc_value.with_traceback(exc_tb)
+  File "/home/dar-o-rom-n/Escritorio/proyecto/movie-hub/venv/lib/python3.12/site-packages/sqlalchemy/orm/state.py", line 569, in _initialize_instance
+    manager.original_init(*mixed[1:], **kwargs)
+  File "/home/dar-o-rom-n/Escritorio/proyecto/movie-hub/venv/lib/python3.12/site-packages/sqlalchemy/orm/decl_base.py", line 2182, in _declarative_constructor
+    setattr(self, k, kwargs[k])
+  File "/home/dar-o-rom-n/Escritorio/proyecto/movie-hub/venv/lib/python3.12/site-packages/sqlalchemy/orm/attributes.py", line 540, in __set__
+    self.impl.set(
+  File "/home/dar-o-rom-n/Escritorio/proyecto/movie-hub/venv/lib/python3.12/site-packages/sqlalchemy/orm/attributes.py", line 1477, in set
+    value = self.fire_replace_event(state, dict_, value, old, initiator)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/dar-o-rom-n/Escritorio/proyecto/movie-hub/venv/lib/python3.12/site-packages/sqlalchemy/orm/attributes.py", line 1516, in fire_replace_event
+    value = fn(
+            ^^^
+  File "/home/dar-o-rom-n/Escritorio/proyecto/movie-hub/venv/lib/python3.12/site-packages/sqlalchemy/orm/attributes.py", line 2174, in emit_backref_from_scalar_set_event
+    child_impl = child_state.manager[key].impl
+                 ~~~~~~~~~~~~~~~~~~~^^^^^
+KeyError: 'fakenodo'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/dar-o-rom-n/Escritorio/proyecto/movie-hub/app/modules/fakenodo/routes.py", line 35, in create
+    fakenodo_response = service.create_fakenodo(movie_dataset)
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/dar-o-rom-n/Escritorio/proyecto/movie-hub/app/modules/fakenodo/services.py", line 36, in create_fakenodo
+    raise Exception(f"Failed to create deposition in Fakenodo with error: {str(error400)}")
+Exception: Failed to create deposition in Fakenodo with error: 'fakenodo'
+2025-11-10 18:34:55,877 - app.modules.fakenodo.routes - ERROR - Error creating MovieDataset in Fakenodo.
+Traceback (most recent call last):
+  File "/home/dar-o-rom-n/Escritorio/proyecto/movie-hub/app/modules/fakenodo/services.py", line 27, in create_fakenodo
+    deposition = self.repository.create_new_movie(metadata=dataset_metadata,
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: FakenodoRepository.create_new_movie() got an unexpected keyword argument 'metadata'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/dar-o-rom-n/Escritorio/proyecto/movie-hub/app/modules/fakenodo/routes.py", line 35, in create
+    fakenodo_response = service.create_fakenodo(movie_dataset)
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/dar-o-rom-n/Escritorio/proyecto/movie-hub/app/modules/fakenodo/services.py", line 36, in create_fakenodo
+    raise Exception(f"Failed to create deposition in Fakenodo with error: {str(error400)}")
+Exception: Failed to create deposition in Fakenodo with error: FakenodoRepository.create_new_movie() got an unexpected keyword argument 'metadata'
+2025-11-10 18:38:53,064 - app.modules.fakenodo.routes - ERROR - Error creating MovieDataset in Fakenodo.
+Traceback (most recent call last):
+  File "/home/dar-o-rom-n/Escritorio/proyecto/movie-hub/app/modules/fakenodo/services.py", line 27, in create_fakenodo
+    deposition = self.repository.create_new_movie(movie_metadata=dataset_metadata,
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/dar-o-rom-n/Escritorio/proyecto/movie-hub/app/modules/fakenodo/repositories.py", line 10, in create_new_movie
+    return self.create(movie_metadata=movie_metadata, doi=doi)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/dar-o-rom-n/Escritorio/proyecto/movie-hub/core/repositories/BaseRepository.py", line 14, in create
+    instance: T = self.model(**kwargs)
+                  ^^^^^^^^^^^^^^^^^^^^
+  File "<string>", line 4, in __init__
+  File "/home/dar-o-rom-n/Escritorio/proyecto/movie-hub/venv/lib/python3.12/site-packages/sqlalchemy/orm/state.py", line 571, in _initialize_instance
+    with util.safe_reraise():
+  File "/home/dar-o-rom-n/Escritorio/proyecto/movie-hub/venv/lib/python3.12/site-packages/sqlalchemy/util/langhelpers.py", line 224, in __exit__
+    raise exc_value.with_traceback(exc_tb)
+  File "/home/dar-o-rom-n/Escritorio/proyecto/movie-hub/venv/lib/python3.12/site-packages/sqlalchemy/orm/state.py", line 569, in _initialize_instance
+    manager.original_init(*mixed[1:], **kwargs)
+  File "/home/dar-o-rom-n/Escritorio/proyecto/movie-hub/venv/lib/python3.12/site-packages/sqlalchemy/orm/decl_base.py", line 2179, in _declarative_constructor
+    raise TypeError(
+TypeError: 'movie_metadata' is an invalid keyword argument for Fakenodo
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/dar-o-rom-n/Escritorio/proyecto/movie-hub/app/modules/fakenodo/routes.py", line 35, in create
+    fakenodo_response = service.create_fakenodo(movie_dataset)
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/dar-o-rom-n/Escritorio/proyecto/movie-hub/app/modules/fakenodo/services.py", line 37, in create_fakenodo
+    raise Exception(f"Failed to create deposition in Fakenodo with error: {str(error400)}")
+Exception: Failed to create deposition in Fakenodo with error: 'movie_metadata' is an invalid keyword argument for Fakenodo
+2025-11-11 01:05:11,278 - app.modules.fakenodo.routes - ERROR - Error creating MovieDataset in Fakenodo.
+Traceback (most recent call last):
+  File "/home/dar-o-rom-n/Escritorio/proyecto/movie-hub/app/modules/fakenodo/services.py", line 25, in create_fakenodo
+    deposition = self.repository.create_new_movie(metadata=dataset_metadata, doi=dataset_doi)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: FakenodoRepository.create_new_movie() got an unexpected keyword argument 'metadata'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/dar-o-rom-n/Escritorio/proyecto/movie-hub/app/modules/fakenodo/routes.py", line 35, in create
+    fakenodo_response = service.create_fakenodo(movie_dataset)
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/dar-o-rom-n/Escritorio/proyecto/movie-hub/app/modules/fakenodo/services.py", line 29, in create_fakenodo
+    raise Exception(f"Failed to create deposition in Fakenodo with error: {str(error400)}")
+Exception: Failed to create deposition in Fakenodo with error: FakenodoRepository.create_new_movie() got an unexpected keyword argument 'metadata'
+2025-11-11 01:16:51,738 - app.modules.fakenodo.routes - ERROR - Error creating MovieDataset in Fakenodo.
+Traceback (most recent call last):
+  File "/home/dar-o-rom-n/Escritorio/proyecto/movie-hub/app/modules/fakenodo/services.py", line 25, in create_fakenodo
+    deposition = self.repository.create_new_movie(metadata=dataset_metadata, doi=dataset_doi)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: FakenodoRepository.create_new_movie() got an unexpected keyword argument 'metadata'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/dar-o-rom-n/Escritorio/proyecto/movie-hub/app/modules/fakenodo/routes.py", line 35, in create
+    fakenodo_response = service.create_fakenodo(movie_dataset)
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/dar-o-rom-n/Escritorio/proyecto/movie-hub/app/modules/fakenodo/services.py", line 29, in create_fakenodo
+    raise Exception(f"Failed to create deposition in Fakenodo with error: {str(error400)}")
+Exception: Failed to create deposition in Fakenodo with error: FakenodoRepository.create_new_movie() got an unexpected keyword argument 'metadata'
