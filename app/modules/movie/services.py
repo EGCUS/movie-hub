@@ -5,7 +5,7 @@ from app import db
 from app.modules.dataset.models import Author, DSMetaData
 from app.modules.featuremodel.models import FMMetaData, FeatureModel
 from app.modules.hubfile.models import Hubfile
-from app.modules.movie.models import DatasetChangeLog, MovieDataset, Movie
+from app.modules.movie.models import MovieDataset, Movie
 import json
 from types import SimpleNamespace
 from app.modules.dataset.base_dataset import Version

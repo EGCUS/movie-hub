@@ -11,7 +11,7 @@ from flask_login import current_user, login_required
 from app import db
 from app.modules.featuremodel.models import FMMetaData, FeatureModel
 from app.modules.hubfile.models import Hubfile
-from app.modules.movie.forms import MovieEditMetadataForm, MovieForm
+from app.modules.movie.forms import MovieForm
 from app.modules.movie.models import Movie, MovieDataset
 from app.modules.dataset.models import DSMetaData, Author, DSDownloadRecord
 from app.modules.fakenodo.adapter import FakenodoAdapter
