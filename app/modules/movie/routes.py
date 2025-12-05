@@ -11,7 +11,7 @@ from flask_login import current_user, login_required
 from app import db
 from app.modules.featuremodel.models import FMMetaData, FeatureModel
 from app.modules.hubfile.models import Hubfile
-from app.modules.movie.forms import MovieForm
+from app.modules.movie.forms import MovieEditMetadataForm, MovieForm
 from app.modules.movie.models import Movie, MovieDataset
 from app.modules.dataset.models import DSMetaData, Author, DSDownloadRecord
 from app.modules.fakenodo.adapter import FakenodoAdapter
@@ -326,6 +326,99 @@ def movie_doi_view(doi):
     resp.set_cookie("view_cookie", user_cookie)
     
     return resp
+
+@movie_bp.route("/moviedataset/<int:dataset_id>/changelog", methods=["GET"])
+def view_changelog(dataset_id):
+    """
+    Muestra el historial de cambios menores del dataset.
+    """
+    dataset = movie_service.get_moviedataset(dataset_id)
+    change_history = movie_service.get_change_history(dataset_id)
+    
+    return render_template(
+        "movie/changelog.html",
+        dataset=dataset,
+        changes=change_history
+    )
+
+
+@movie_bp.route("/api/moviedataset/<int:dataset_id>/changelog", methods=["GET"])
+def api_changelog(dataset_id):
+    #CAMBIOS EN JSON
+    dataset = movie_service.get_moviedataset(dataset_id)
+    change_history = movie_service.get_change_history(dataset_id)
+    
+    return jsonify({
+        "dataset_id": dataset_id,
+        "dataset_title": dataset.ds_meta_data.title,
+        "changes": [change.to_dict() for change in change_history]
+    })
+    
+    
+@movie_bp.route("/moviedataset/<int:dataset_id>/edit", methods=["GET", "POST"])
+@login_required
+def edit_dataset_metadata(dataset_id):
+    dataset = movie_service.get_moviedataset(dataset_id)
+    
+    if dataset.user_id != current_user.id:
+        abort(403, "You don't have permission to edit this dataset")
+    
+    form = MovieEditMetadataForm()
+    
+    if request.method == 'GET':
+        # Prellenar campos simples
+        form.title.data = dataset.ds_meta_data.title
+        form.desc.data = dataset.ds_meta_data.description
+        form.tags.data = dataset.ds_meta_data.tags
+        
+        # Prellenar autores
+        while len(form.authors) > 0:
+            form.authors.pop_entry()
+        
+        form.authors.entries = []
+        for author in dataset.ds_meta_data.authors:
+            # Crear un nuevo AuthorForm 
+            from app.modules.movie.forms import AuthorForm
+            author_subform = AuthorForm(prefix=f'authors-{len(form.authors)}')
+            author_subform.name.data = author.name
+            author_subform.affiliation.data = author.affiliation or ''
+            author_subform.orcid.data = author.orcid or ''
+            form.authors.entries.append(author_subform)
+    
+    if form.validate_on_submit():
+        try:
+            # Editar metadata
+            metadata_changes = movie_service.edit_metadata(
+                dataset=dataset,
+                new_title=form.title.data,
+                new_description=form.desc.data,
+                new_tags=form.tags.data or None,
+                user_id=current_user.id,
+                comment=form.edit_comment.data
+            )
+            
+            new_authors = form.get_authors()
+            movie_service.edit_authors(
+                dataset=dataset,
+                new_authors=new_authors,
+                user_id=current_user.id,
+                comment=form.edit_comment.data
+            )
+            
+            flash('Dataset metadata updated successfully! (No new version created)', 'success')
+            return redirect(url_for('movie.view_dataset', dataset_id=dataset.id))
+            
+        except Exception as e:
+            db.session.rollback()
+            logger.exception("Error editing dataset metadata")
+            flash(f'Error updating metadata: {str(e)}', 'error')
+    
+    return render_template(
+        "movie/edit_dataset.html",
+        form=form,
+        dataset=dataset
+    )
+
 
 
 

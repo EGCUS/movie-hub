@@ -1,7 +1,41 @@
+from datetime import datetime
 from app import db
 from app.modules.dataset.base_dataset import BaseDataset
 
 
+
+class DatasetChangeLog(db.Model):
+    """Log de cambios menores en datasets (sin nuevo DOI)"""
+    __tablename__ = "dataset_change_log"
+    
+    id = db.Column(db.Integer, primary_key=True)
+    dataset_id = db.Column(db.Integer, db.ForeignKey('base_dataset.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    
+    # TIPO
+    change_type = db.Column(db.String(50), nullable=False)
+    changes = db.Column(db.JSON, nullable=False)
+    comment = db.Column(db.Text)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    
+    # Relaciones
+    dataset = db.relationship("BaseDataset", backref="change_logs")
+    user = db.relationship("User", backref="dataset_changes")
+    
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "dataset_id": self.dataset_id,
+            "user_id": self.user_id,
+            "change_type": self.change_type,
+            "changes": self.changes,
+            "comment": self.comment,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "user_name": f"{self.user.profile.name} {self.user.profile.surname}" if self.user and self.user.profile else "Unknown"
+        }
+    
+    def __repr__(self):
+        return f"<DatasetChangeLog {self.id}: {self.change_type} on dataset {self.dataset_id}>"
 class Movie(db.Model):
     """Modelo para películas individuales"""
     __tablename__ = "movie"
@@ -36,7 +70,7 @@ class Movie(db.Model):
     awards = db.Column(db.JSON)
     
     def to_dict(self):
-        """Convierte la película a diccionario"""
+        """Convierte la pelí­cula a diccionario"""
         return {
             "id": self.id,
             "title": self.title,
@@ -61,7 +95,7 @@ class Movie(db.Model):
 
 
 class MovieDataset(BaseDataset):
-    """Dataset que contiene múltiples películas"""
+    """Dataset que contiene múltiples pelí­culas"""
     __tablename__ = "movie_dataset"
     
     id = db.Column(db.Integer, db.ForeignKey('base_dataset.id'), primary_key=True)
@@ -78,7 +112,7 @@ class MovieDataset(BaseDataset):
     }
     
     def get_movies_count(self):
-        """Retorna el número de películas en el dataset"""
+        """Retorna el número de pelí­culas en el dataset"""
         return len(self.movies)
     
     @property
