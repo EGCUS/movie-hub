@@ -111,27 +111,25 @@ class FakenodoService(BaseService):
         Returns:
             dict with file info
         """
-        # 1️⃣ Validate Fakenodo
         fakenodo = self.get_by_id(fakenodo_id)
         if not fakenodo:
             raise ValueError(f"Fakenodo with ID {fakenodo_id} not found")
 
-        # 2️⃣ Generate file path inside Fakenodo
         fakenodo_folder = os.path.join("datasets", f"fakenodo_{fakenodo_id}", f"dataset_{dataset_id}")
         os.makedirs(fakenodo_folder, exist_ok=True)
         file_path = os.path.join(fakenodo_folder, filename)
 
-        # 3️⃣ Save the file
+        # Save the file
         with open(file_path, "wb") as f:
             f.write(file_content)
 
-        # 4️⃣ Validate integrity
+        # Validate integrity
         checksum = hashlib.md5(file_content).hexdigest()
         with open(file_path, "rb") as f:
             if hashlib.md5(f.read()).hexdigest() != checksum:
                 raise Exception(f"Corrupted file detected in Fakenodo copy of '{filename}'")
 
-        # 5️⃣ Update Fakenodo status
+        #Update Fakenodo
         fakenodo.dataset_file_path = fakenodo_folder
         fakenodo.status = "dataset_uploaded"
         self.update(
@@ -139,8 +137,6 @@ class FakenodoService(BaseService):
             dataset_file_path=fakenodo.dataset_file_path,
             status=fakenodo.status
         )
-
-        # 6️⃣ Return minimal info
         return {
             "fakenodo_id": fakenodo_id,
             "dataset_id": dataset_id,
