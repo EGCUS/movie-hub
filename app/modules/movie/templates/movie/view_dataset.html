@@ -4,61 +4,222 @@
 
 {% block head_extra %}
 <style>
-    .movie-card {
-        transition: transform 0.2s, box-shadow 0.2s;
-        height: 100%;
-        cursor: pointer;
-    }
-    
-    .movie-card:hover {
-        transform: translateY(-5px);
-        box-shadow: 0 4px 15px rgba(0,0,0,0.2);
-    }
-    
-    .movie-poster {
+    /* Carousel container */
+    .carousel-container {
+        position: relative;
         width: 100%;
-        height: 400px;
+        height: 550px;
+        background: linear-gradient(135deg, #f5f7fa 0%, #e9ecef 100%);
+        border-radius: 15px;
+        overflow: hidden;
+    }
+
+    .carousel-wrapper {
+        position: absolute;
+        width: 100%;
+        height: 100%;
+        top: 0;
+        left: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        perspective: 1200px;
+    }
+
+    .carousel-track {
+        position: relative;
+        width: 100%;
+        height: 100%;
+    }
+
+    .carousel-item {
+        position: absolute;
+        width: 280px;
+        height: 420px;
+        cursor: pointer;
+        transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        border-radius: 15px;
+        overflow: hidden;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        background: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        -webkit-transform-style: preserve-3d;
+        transform-style: preserve-3d;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+    }
+
+    .carousel-item img {
+        width: 100%;
+        height: 100%;
         object-fit: cover;
-        border-radius: 5px 5px 0 0;
+        display: block;
+        image-rendering: auto;
+        -webkit-backface-visibility: hidden;
+        backface-visibility: hidden;
+        -webkit-transform: translateZ(0);
+        transform: translateZ(0);
+        -webkit-font-smoothing: subpixel-antialiased;
     }
-    
-    .movie-info {
-        padding: 15px;
+
+    .carousel-item .placeholder {
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
     }
-    
-    .movie-title {
-        font-size: 1.1rem;
+
+    /* Posiciones del carrusel */
+    .carousel-item.center {
+        z-index: 5;
+        left: 50%;
+        top: 50%;
+        transform: translate(-50%, -50%) scale(1.3);
+        opacity: 1;
+        filter: brightness(1);
+    }
+
+    .carousel-item.left-1 {
+        z-index: 4;
+        left: 50%;
+        top: 50%;
+        transform: translate(calc(-50% - 350px), -50%) scale(0.9) rotateY(25deg);
+        opacity: 0.8;
+        filter: brightness(0.7);
+    }
+
+    .carousel-item.left-2 {
+        z-index: 3;
+        left: 50%;
+        top: 50%;
+        transform: translate(calc(-50% - 600px), -50%) scale(0.7) rotateY(35deg);
+        opacity: 0.5;
+        filter: brightness(0.5);
+    }
+
+    .carousel-item.right-1 {
+        z-index: 4;
+        left: 50%;
+        top: 50%;
+        transform: translate(calc(-50% + 350px), -50%) scale(0.9) rotateY(-25deg);
+        opacity: 0.8;
+        filter: brightness(0.7);
+    }
+
+    .carousel-item.right-2 {
+        z-index: 3;
+        left: 50%;
+        top: 50%;
+        transform: translate(calc(-50% + 600px), -50%) scale(0.7) rotateY(-35deg);
+        opacity: 0.5;
+        filter: brightness(0.5);
+    }
+
+    .carousel-item.hidden {
+        z-index: 1;
+        left: 50%;
+        top: 50%;
+        transform: translate(-50%, -50%) scale(0.5);
+        opacity: 0;
+        pointer-events: none;
+    }
+
+    /* Botones de navegación */
+    .carousel-nav {
+        position: absolute;
+        top: 50%;
+        transform: translateY(-50%);
+        z-index: 10;
+        width: 50px;
+        height: 50px;
+        background: rgba(255, 255, 255, 0.9);
+        border: none;
+        border-radius: 50%;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+    }
+
+    .carousel-nav:hover {
+        background: white;
+        transform: translateY(-50%) scale(1.1);
+    }
+
+    .carousel-nav.prev {
+        left: 20px;
+    }
+
+    .carousel-nav.next {
+        right: 20px;
+    }
+
+    /* Detalles de la película */
+    .movie-details {
+        margin-top: 30px;
+        padding: 30px;
+        background: white;
+        border-radius: 15px;
+        box-shadow: 0 5px 20px rgba(0, 0, 0, 0.1);
+        min-height: 200px;
+    }
+
+    .movie-details h2 {
+        font-size: 2rem;
         font-weight: bold;
-        margin-bottom: 5px;
-        min-height: 50px;
+        margin-bottom: 15px;
         color: #212529;
-        text-decoration: none;
     }
-    
-    .movie-title:hover {
-        color: #0d6efd;
+
+    .movie-details .meta-info {
+        display: flex;
+        gap: 15px;
+        margin-bottom: 15px;
+        flex-wrap: wrap;
+        align-items: center;
     }
-    
-    .movie-meta {
-        font-size: 0.9rem;
+
+    .movie-details .meta-item {
+        display: flex;
+        align-items: center;
+        gap: 5px;
         color: #6c757d;
-        margin-bottom: 10px;
     }
-    
-    .rating-badge {
+
+    .movie-details .rating-badge {
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         color: white;
-        padding: 5px 10px;
+        padding: 8px 15px;
         border-radius: 20px;
         font-weight: bold;
+        display: inline-block;
     }
-    
-    .genre-badge {
+
+    .movie-details .genre-badge {
         background-color: #e9ecef;
-        padding: 3px 8px;
-        border-radius: 3px;
-        font-size: 0.85rem;
-        margin-right: 5px;
+        padding: 5px 12px;
+        border-radius: 15px;
+        font-size: 0.9rem;
+        margin-right: 8px;
+        display: inline-block;
+    }
+
+    .movie-details .synopsis {
+        color: #495057;
+        line-height: 1.6;
+        margin-top: 15px;
+    }
+
+    .movie-details .director-info {
+        margin-top: 10px;
+        color: #6c757d;
+        font-style: italic;
     }
 </style>
 {% endblock %}
@@ -74,7 +235,15 @@
     </div>
     <div class="col-6 text-end">
         {% if current_user.is_authenticated and current_user.id == dataset.user_id %}
-        <a href="{{ url_for('movie.manage_dataset', dataset_id=dataset.id) }}" class="btn btn-outline-secondary btn-sm" style="border-radius: 5px;">
+        <a href="{{ url_for('movie.edit_dataset_metadata', dataset_id=dataset.id) }}" 
+           class="btn btn-outline-primary btn-sm me-2" 
+           style="border-radius: 5px;">
+            <i data-feather="edit"></i>
+            Edit Metadata
+        </a>
+        <a href="{{ url_for('movie.manage_dataset', dataset_id=dataset.id) }}" 
+           class="btn btn-outline-secondary btn-sm" 
+           style="border-radius: 5px;">
             <i data-feather="settings"></i>
             Manage Dataset
         </a>
@@ -82,7 +251,6 @@
     </div>
 </div>
 
-<!-- Dataset Info Card -->
 <div class="card mb-4">
     <div class="card-body">
         <div class="d-flex align-items-center justify-content-between mb-3">
@@ -107,6 +275,28 @@
             </div>
         </div>
         
+        {% if dataset.ds_meta_data.publication_doi %}
+        <div class="row mb-2">
+            <div class="col-md-3 text-secondary">Publication DOI</div>
+            <div class="col-md-9">
+                <a href="{{ dataset.ds_meta_data.publication_doi }}" target="_blank">
+                    {{ dataset.ds_meta_data.publication_doi }}
+                </a>
+            </div>
+        </div>
+        {% endif %}
+
+        {% if dataset.ds_meta_data.dataset_doi %}
+        <div class="row mb-2">
+            <div class="col-md-3 text-secondary">Fakenodo record</div>
+            <div class="col-md-9">
+                <a href="https://fakenodo.com/records/{{ dataset.ds_meta_data.deposition_id }}" target="_blank">
+                    https://fakenodo.com/records/{{ dataset.ds_meta_data.deposition_id }}
+                </a>
+            </div>
+        </div>
+        {% endif %}
+        
         {% if dataset.ds_meta_data.tags %}
         <div class="row mb-2">
             <div class="col-md-3 text-secondary">Tags</div>
@@ -123,84 +313,123 @@
                     <i data-feather="download"></i>
                     Download Dataset ({{ dataset.get_file_total_size_for_human() }})
                 </a>
-                <!-- COMPARE VERSIONS -->
                 <a href="{{ url_for('movie.select_versions', dataset_id=dataset.id) }}" 
                 class="btn btn-warning" style="border-radius: 5px;">
-                    <i data-feather="git-compare"></i>
+                    <i data-feather="git-merge"></i>
                     Compare Versions
                 </a>
             </div>
         </div>
     </div>
+    
+    {% if dataset.ds_meta_data.dataset_doi %}
+    <div class="card-body" style="padding-top: 0px">
+        <div id="dataset_doi_moviehub" style="display: none">
+            {{ dataset.ds_meta_data.dataset_doi }}
+        </div>
+
+        <button type="button" class="btn doi_button btn-sm">
+            <span class="button_doi_id" onclick="copyText('dataset_doi_moviehub')" style="cursor: pointer;">
+                <i data-feather="clipboard" class="center-button-icon"></i>
+                <b>DOI</b>
+            </span>
+            <span class="doi_text" onclick="window.location.href='{{ url_for('movie.movie_doi_view', doi=dataset.ds_meta_data.dataset_doi) }}'" style="cursor: pointer;">
+                {{ dataset.ds_meta_data.dataset_doi }}
+            </span>
+        </button>
+    </div>
+    {% endif %}
 </div>
 
-<!-- Movies Library -->
-<div class="card">
+<div class="card mb-4">
     <div class="card-body">
         <h3 class="mb-4">🎥 Movie Collection</h3>
         
         {% if dataset.movies %}
-        <div class="row">
-            {% for movie in dataset.movies %}
-            <div class="col-lg-3 col-md-4 col-sm-6 mb-4">
-                <a href="{{ url_for('movie.view_movie', movie_id=movie.id) }}" style="text-decoration: none;">
-                    <div class="card movie-card">
+        
+        <!-- Carrusel de películas -->
+        <div class="carousel-container">
+            <button class="carousel-nav prev" onclick="moveCarousel(-1)">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="15 18 9 12 15 6"></polyline>
+                </svg>
+            </button>
+            
+            <div class="carousel-wrapper">
+                <div class="carousel-track" id="carouselTrack">
+                    {% for movie in dataset.movies %}
+                    <div class="carousel-item" data-index="{{ loop.index0 }}" data-movie-id="{{ movie.id }}" onclick="handleMovieClick({{ loop.index0 }}, {{ movie.id }})">
                         {% if movie.poster_url %}
-                        <img src="{{ movie.poster_url }}" alt="{{ movie.title }}" class="movie-poster">
+                        <img src="{{ movie.poster_url }}" alt="{{ movie.title }}">
                         {% else %}
-                        <div class="movie-poster d-flex align-items-center justify-content-center bg-secondary text-white">
-                            <i data-feather="film" style="width: 80px; height: 80px;"></i>
+                        <div class="placeholder">
+                            <i data-feather="film" style="width: 80px; height: 80px; color: white;"></i>
                         </div>
                         {% endif %}
-                        
-                        <div class="movie-info">
-                            <div class="movie-title">{{ movie.title }}</div>
-                            
-                            <div class="movie-meta">
-                                {% if movie.year %}
-                                <span>{{ movie.year }}</span>
-                                {% endif %}
-                                {% if movie.duration %}
-                                <span> • {{ movie.duration }} min</span>
-                                {% endif %}
-                            </div>
-                            
-                            {% if movie.genre %}
-                            <div class="mb-2">
-                                <span class="genre-badge">{{ movie.genre }}</span>
-                            </div>
-                            {% endif %}
-                            
-                            {% if movie.director %}
-                            <div class="text-muted small mb-2">
-                                <i data-feather="user" style="width: 14px; height: 14px;"></i>
-                                {{ movie.director }}
-                            </div>
-                            {% endif %}
-                            
-                            {% if movie.imdb_rating %}
-                            <div class="mb-2">
-                                <span class="rating-badge">
-                                    ⭐ {{ movie.imdb_rating }}/10
-                                </span>
-                            </div>
-                            {% endif %}
-                            
-                            {% if movie.synopsis %}
-<<<<<<< HEAD
-                            <p class="text-muted small" style="display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;">
-=======
-                            <p class="text-muted small" style="display: -webkit-box; -webkit-line-clamp: 3; line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;">
->>>>>>> feature/differences-between-versions
-                                {{ movie.synopsis }}
-                            </p>
-                            {% endif %}
-                        </div>
                     </div>
-                </a>
+                    {% endfor %}
+                </div>
             </div>
-            {% endfor %}
+            
+            <button class="carousel-nav next" onclick="moveCarousel(1)">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="9 18 15 12 9 6"></polyline>
+                </svg>
+            </button>
         </div>
+
+        <!-- Detalles de la película seleccionada -->
+        <div class="movie-details" id="movieDetails">
+            <h2 id="movieTitle">{{ dataset.movies[0].title if dataset.movies else '' }}</h2>
+            
+            <div class="meta-info">
+                <span class="meta-item" id="movieYear">
+                    {% if dataset.movies and dataset.movies[0].year %}
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                        <line x1="16" y1="2" x2="16" y2="6"></line>
+                        <line x1="8" y1="2" x2="8" y2="6"></line>
+                        <line x1="3" y1="10" x2="21" y2="10"></line>
+                    </svg>
+                    {{ dataset.movies[0].year }}
+                    {% endif %}
+                </span>
+                <span class="meta-item" id="movieDuration">
+                    {% if dataset.movies and dataset.movies[0].duration %}
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <polyline points="12 6 12 12 16 14"></polyline>
+                    </svg>
+                    {{ dataset.movies[0].duration }} min
+                    {% endif %}
+                </span>
+            </div>
+
+            <div id="movieRating">
+                {% if dataset.movies and dataset.movies[0].imdb_rating %}
+                <span class="rating-badge">⭐ {{ dataset.movies[0].imdb_rating }}/10</span>
+                {% endif %}
+            </div>
+
+            <div id="movieGenre" class="mt-3">
+                {% if dataset.movies and dataset.movies[0].genre %}
+                <span class="genre-badge">{{ dataset.movies[0].genre }}</span>
+                {% endif %}
+            </div>
+
+            <div class="director-info" id="movieDirector">
+                {% if dataset.movies and dataset.movies[0].director %}
+                Directed by {{ dataset.movies[0].director }}
+                {% endif %}
+            </div>
+
+            <div class="synopsis" id="movieSynopsis">
+                {% if dataset.movies and dataset.movies[0].synopsis %}
+                {{ dataset.movies[0].synopsis }}
+                {% endif %}
+            </div>
+        </div>
+
         {% else %}
         <div class="text-center py-5">
             <p class="text-muted">No movies found in this dataset.</p>
@@ -209,9 +438,203 @@
     </div>
 </div>
 
+<!-- Sección de archivos JSON -->
+<div class="card">
+    <div class="card-body">
+        <div class="row">
+            <div class="col-12 d-flex justify-content-between align-items-center mb-3">
+                <h3 style="margin-bottom: 0px">📄 Dataset Files</h3>
+                <h4 style="margin-bottom: 0px;"><span class="badge bg-dark">{{ dataset.get_files_count() }}</span></h4>
+            </div>
+        </div>
+
+        {% if dataset.feature_models %}
+        <div class="list-group">
+            {% for feature_model in dataset.feature_models %}
+                {% for file in feature_model.files %}
+                <div class="list-group-item">
+                    <div class="row">
+                        <div class="col-md-8 col-12">
+                            <div class="d-flex align-items-center">
+                                <i data-feather="file"></i>
+                                <span class="ms-2"><strong>{{ file.name }}</strong></span>
+                            </div>
+                            <small class="text-muted ms-4">({{ file.get_formatted_size() }})</small>
+                        </div>
+                        <div class="col-md-4 col-12 text-end">
+                            <button onclick="viewFile('{{ file.id }}')" class="btn btn-outline-secondary btn-sm" style="border-radius: 5px;">
+                                <i data-feather="eye"></i> View
+                            </button>
+                            <a href="{{ url_for('hubfile.download_file', file_id=file.id) }}" class="btn btn-primary btn-sm" style="border-radius: 5px;">
+                                <i data-feather="download"></i> Download
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="text-center py-4">
+            <p class="text-muted">No files found in this dataset.</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Modal para visualizar archivos -->
+<div class="modal fade" id="fileViewerModal" tabindex="-1" aria-labelledby="fileViewerModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg" style="max-width: 80%; height: 80vh; display: flex; align-items: center;">
+        <div class="modal-content" style="height: 80vh;">
+            <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center;">
+                <h5 class="modal-title" id="fileViewerModalLabel">File Preview</h5>
+                <div>
+                    <a href="#" class="btn btn-outline-primary btn-sm" id="downloadButton"
+                        style="margin-right: 5px; margin-bottom: 5px; border-radius: 5px;">
+                        <i data-feather="download"></i>
+                    </a>
+                    <button onclick="copyToClipboard()" class="btn btn-outline-secondary btn-sm"
+                        style="margin-right: 5px; margin-bottom: 5px; border-radius: 5px;">
+                        <i data-feather="copy"></i>
+                    </button>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+            </div>
+            <div class="modal-body" style="overflow-y: auto; height: calc(100% - 60px);">
+                <pre id="fileContent" style="height: 100%; overflow-y: auto; white-space: pre-wrap; word-wrap: break-word; background-color: #f8f9fa; padding: 20px; border-radius: 5px; border: 1px solid #dee2e6; font-family: 'Courier New', monospace; font-size: 14px;"></pre>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
+    // Datos de las películas
+    const movies = [
+        {% for movie in dataset.movies %}
+        {
+            title: "{{ movie.title|safe }}",
+            year: "{{ movie.year or '' }}",
+            duration: "{{ movie.duration or '' }}",
+            genre: "{{ movie.genre or '' }}",
+            director: "{{ movie.director or '' }}",
+            rating: "{{ movie.imdb_rating or '' }}",
+            synopsis: "{{ movie.synopsis|safe }}"
+        }{% if not loop.last %},{% endif %}
+        {% endfor %}
+    ];
+
+    let currentIndex = 0;
+
+    function updateCarousel() {
+        const items = document.querySelectorAll('.carousel-item');
+        const totalItems = items.length;
+        
+        items.forEach((item, index) => {
+            item.className = 'carousel-item';
+            const position = (index - currentIndex + totalItems) % totalItems;
+            
+            if (position === 0) {
+                item.classList.add('center');
+            } else if (position === 1 || position === totalItems - 1) {
+                item.classList.add(position === 1 ? 'right-1' : 'left-1');
+            } else if (position === 2 || position === totalItems - 2) {
+                item.classList.add(position === 2 ? 'right-2' : 'left-2');
+            } else {
+                item.classList.add('hidden');
+            }
+        });
+
+        updateMovieDetails();
+    }
+
+    function updateMovieDetails() {
+        const movie = movies[currentIndex];
+        
+        document.getElementById('movieTitle').textContent = movie.title;
+        
+        document.getElementById('movieYear').innerHTML = movie.year ? 
+            `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                <line x1="16" y1="2" x2="16" y2="6"></line>
+                <line x1="8" y1="2" x2="8" y2="6"></line>
+                <line x1="3" y1="10" x2="21" y2="10"></line>
+            </svg> ${movie.year}` : '';
+            
+        document.getElementById('movieDuration').innerHTML = movie.duration ? 
+            `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"></circle>
+                <polyline points="12 6 12 12 16 14"></polyline>
+            </svg> ${movie.duration} min` : '';
+            
+        document.getElementById('movieRating').innerHTML = movie.rating ? 
+            `<span class="rating-badge">⭐ ${movie.rating}/10</span>` : '';
+            
+        document.getElementById('movieGenre').innerHTML = movie.genre ? 
+            `<span class="genre-badge">${movie.genre}</span>` : '';
+            
+        document.getElementById('movieDirector').textContent = movie.director ? 
+            `Directed by ${movie.director}` : '';
+            
+        document.getElementById('movieSynopsis').textContent = movie.synopsis || '';
+    }
+
+    function moveCarousel(direction) {
+        const totalItems = movies.length;
+        currentIndex = (currentIndex + direction + totalItems) % totalItems;
+        updateCarousel();
+    }
+
+    function selectMovie(index) {
+        currentIndex = index;
+        updateCarousel();
+    }
+
+    function handleMovieClick(index, movieId) {
+        if (index === currentIndex) {
+            window.location.href = "{{ url_for('movie.view_movie', movie_id=0) }}".replace('0', movieId);
+        } else {
+            selectMovie(index);
+        }
+    }
+
+    function viewFile(fileId) {
+        fetch(`/file/view/${fileId}`)
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('fileContent').textContent = data.content;
+                document.getElementById('downloadButton').href = `/file/download/${fileId}`;
+                var modal = new bootstrap.Modal(document.getElementById('fileViewerModal'));
+                modal.show();
+                feather.replace();
+            })
+            .catch(error => {
+                console.error('Error loading file:', error);
+                alert('Error loading file. Please try again.');
+            });
+    }
+
+    function copyToClipboard() {
+        const text = document.getElementById('fileContent').textContent;
+        navigator.clipboard.writeText(text).then(() => {
+            console.log('Text copied to clipboard');
+        }).catch(err => {
+            console.error('Failed to copy text: ', err);
+        });
+    }
+
+    // Inicializar
     document.addEventListener('DOMContentLoaded', function () {
-        feather.replace();
+        setTimeout(updateCarousel, 100);
+        
+        if (typeof feather !== 'undefined') {
+            feather.replace();
+        }
+
+        // Navegación con teclado
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'ArrowLeft') moveCarousel(-1);
+            else if (e.key === 'ArrowRight') moveCarousel(1);
+        });
     });
 </script>
 
