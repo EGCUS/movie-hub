@@ -1,0 +1,211 @@
+{% extends "base_template.html" %}
+
+{% block title %}Edit Dataset - {{ dataset.ds_meta_data.title }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row mb-3">
+        <div class="col-12">
+            <a href="{{ url_for('movie.view_dataset', dataset_id=dataset.id) }}" class="btn btn-outline-secondary">
+                <i data-feather="arrow-left"></i> Back to Dataset
+            </a>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header bg-primary text-white">
+            <h3 class="mb-0">
+                <i data-feather="edit-3"></i> Edit Dataset Metadata
+            </h3>
+            <small>Minor edits (no new version or DOI will be created)</small>
+        </div>
+
+        <div class="card-body">
+            <div class="alert alert-info">
+                <i data-feather="info"></i>
+                <strong>About minor edits:</strong> Changes to title, description, tags, and authors 
+                do not create a new version or DOI. These edits are logged in the changelog for transparency.
+            </div>
+
+            <form method="POST" novalidate>
+                {{ form.hidden_tag() }}
+
+                <!-- Title -->
+                <div class="mb-3">
+                    <label for="title" class="form-label">
+                        <strong>Title</strong> <span class="text-danger">*</span>
+                    </label>
+                    {{ form.title(class="form-control", placeholder="Enter dataset title") }}
+                    {% if form.title.errors %}
+                        <div class="text-danger">
+                            {% for error in form.title.errors %}
+                                <small>{{ error }}</small>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+                </div>
+
+                <!-- Description -->
+                <div class="mb-3">
+                    <label for="desc" class="form-label">
+                        <strong>Description</strong> <span class="text-danger">*</span>
+                    </label>
+                    {{ form.desc(class="form-control", rows="5", placeholder="Describe your dataset") }}
+                    {% if form.desc.errors %}
+                        <div class="text-danger">
+                            {% for error in form.desc.errors %}
+                                <small>{{ error }}</small>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+                </div>
+
+                <!-- Tags -->
+                <div class="mb-3">
+                    <label for="tags" class="form-label">
+                        <strong>Tags</strong>
+                    </label>
+                    {{ form.tags(class="form-control", placeholder="movies, sci-fi, action (separated by commas)") }}
+                    <small class="text-muted">Separate tags with commas</small>
+                </div>
+
+                <!-- Authors -->
+                <div class="mb-4">
+                    <label class="form-label">
+                        <strong>Authors</strong> <span class="text-danger">*</span>
+                    </label>
+                    
+                    <div id="authors-container">
+                        {% for author_form in form.authors %}
+                            <div class="card mb-2 author-entry">
+                                <div class="card-body">
+                                    <div class="row">
+                                        <div class="col-md-4">
+                                            <label class="form-label">Name *</label>
+                                            {{ author_form.name(class="form-control", placeholder="Author name") }}
+                                            {% if author_form.name.errors %}
+                                                <div class="text-danger">
+                                                    {% for error in author_form.name.errors %}
+                                                        <small>{{ error }}</small>
+                                                    {% endfor %}
+                                                </div>
+                                            {% endif %}
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label class="form-label">Affiliation</label>
+                                            {{ author_form.affiliation(class="form-control", placeholder="Institution") }}
+                                        </div>
+                                        <div class="col-md-3">
+                                            <label class="form-label">ORCID</label>
+                                            {{ author_form.orcid(class="form-control", placeholder="0000-0000-0000-0000") }}
+                                        </div>
+                                        <div class="col-md-1 d-flex align-items-end">
+                                            <button type="button" class="btn btn-danger btn-sm remove-author" data-index="{{ loop.index0 }}">
+                                                <i data-feather="trash-2"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+
+                    <button type="button" id="add-author" class="btn btn-outline-primary btn-sm">
+                        <i data-feather="plus"></i> Add Author
+                    </button>
+                </div>
+
+                <!-- Edit Comment -->
+                <div class="mb-3">
+                    <label for="edit_comment" class="form-label">
+                        <strong>Edit Comment</strong> (Optional)
+                    </label>
+                    {{ form.edit_comment(class="form-control", rows="3", placeholder="Describe what you changed (e.g., 'Updated author affiliations')") }}
+                    <small class="text-muted">This comment will be visible in the changelog</small>
+                </div>
+
+                <!-- Submit -->
+                <div class="d-flex justify-content-between mt-4">
+                    <a href="{{ url_for('movie.view_dataset', dataset_id=dataset.id) }}" class="btn btn-secondary">
+                        Cancel
+                    </a>
+                    <button type="submit" class="btn btn-primary">
+                        <i data-feather="save"></i> Save Changes
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Changelog Preview -->
+    <div class="card mt-4">
+        <div class="card-header">
+            <h5 class="mb-0">
+                <i data-feather="clock"></i> Recent Changes
+            </h5>
+        </div>
+        <div class="card-body">
+            <a href="{{ url_for('movie.view_changelog', dataset_id=dataset.id) }}" class="btn btn-outline-secondary btn-sm">
+                <i data-feather="list"></i> View Full Changelog
+            </a>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Contador para nuevos autores
+    let authorIndex = {{ form.authors|length }};
+    
+    // Añadir autor
+    document.getElementById('add-author').addEventListener('click', function() {
+        const container = document.getElementById('authors-container');
+        const newAuthor = `
+            <div class="card mb-2 author-entry">
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-4">
+                            <label class="form-label">Name *</label>
+                            <input type="text" name="authors-${authorIndex}-name" class="form-control" placeholder="Author name" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Affiliation</label>
+                            <input type="text" name="authors-${authorIndex}-affiliation" class="form-control" placeholder="Institution">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">ORCID</label>
+                            <input type="text" name="authors-${authorIndex}-orcid" class="form-control" placeholder="0000-0000-0000-0000">
+                        </div>
+                        <div class="col-md-1 d-flex align-items-end">
+                            <button type="button" class="btn btn-danger btn-sm remove-author">
+                                <i data-feather="trash-2"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        container.insertAdjacentHTML('beforeend', newAuthor);
+        authorIndex++;
+        feather.replace();
+    });
+
+    // Eliminar autor (con delegación de eventos)
+    document.addEventListener('click', function(e) {
+        if (e.target.closest('.remove-author')) {
+            const authorEntry = e.target.closest('.author-entry');
+            const totalAuthors = document.querySelectorAll('.author-entry').length;
+            
+            if (totalAuthors > 1) {
+                authorEntry.remove();
+            } else {
+                alert('At least one author is required');
+            }
+        }
+    });
+
+    // Inicializar feather icons
+    document.addEventListener('DOMContentLoaded', function() {
+        feather.replace();
+    });
+</script>
+{% endblock %}
