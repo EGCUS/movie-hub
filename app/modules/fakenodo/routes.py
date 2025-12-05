@@ -101,7 +101,6 @@ def get_doi_versions(fakenodo_id):
 @fakenodo_bp.route("/fakenodo/upload/<int:fakenodo_id>", methods=["POST"])
 def upload_dataset(fakenodo_id: int):
     try:
-
         if "file" not in request.files:
             return jsonify({"ok": False, "error": "file is required"}), 400
 
@@ -110,48 +109,38 @@ def upload_dataset(fakenodo_id: int):
             return jsonify({"ok": False, "error": "empty filename"}), 400
 
         dataset_id = int(request.form.get("dataset_id", 0))
-        feature_model_id = int(request.form.get("feature_model_id", 0))
-        uvl_filename = request.form.get("uvl_filename") or file.filename
+        if not dataset_id:
+            return jsonify({"ok": False, "error": "dataset_id is required"}), 400
 
-        d = MovieDataset()
-        d.id = dataset_id
-        d.file = file.read()
-
-        fm = FeatureModel.query.get(feature_model_id)
-        if not fm:
-            return jsonify({
-                    "ok": False,
-                    "error": "Feature model not found"
-            }), 404
-
-        if not getattr(fm, "fm_meta_data", None):
-            class Meta:
-                pass
-            fm.fm_meta_data = Meta()
-
-        fm.fm_meta_data.uvl_filename = uvl_filename
-
-        os.makedirs("datasets", exist_ok=True)
-
+        # Leer contenido del archivo
+        file_content = file.read()
+        
+        # Usar el servicio actualizado
         svc = FakenodoService()
-        fakenodo = svc.upload_dataset(fakenodo_id, d, fm)
+        result = svc.upload_file_to_fakenodo(
+            fakenodo_id=fakenodo_id,
+            file_content=file_content,
+            filename=file.filename,
+            dataset_id=dataset_id
+        )
 
         db.session.commit()
 
-        return jsonify(
-            {
-                "ok": True,
-                "id": fakenodo.id,
-                "status": fakenodo.status,
-                "dataset_file_path": fakenodo.dataset_file_path,
-            }
-        ), 200
+        return jsonify({
+            "ok": True,
+            "fakenodo_id": result["fakenodo_id"],
+            "dataset_id": result["dataset_id"],
+            "file_path": result["file_path"],
+            "checksum": result["checksum"],
+            "status": result["status"]
+        }), 200
 
     except ValueError as e:
         db.session.rollback()
         return jsonify({"ok": False, "error": str(e)}), 400
     except Exception as e:
         db.session.rollback()
-        msg = f"Unexpected error: {str(e)}"
-        return jsonify({"ok": False, "error": msg}), 500
-
+        logger.exception("Error uploading file to Fakenodo")
+        return jsonify({"ok": False, "error": f"Unexpected error: {str(e)}"}), 500
+    
+    
