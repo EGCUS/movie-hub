@@ -29,6 +29,11 @@ def create_app(config_name="development"):
     # Load configuration according to environment
     config_manager = ConfigManager(app)
     config_manager.load_config(config_name=config_name)
+    
+    app.config['TEMPLATES_AUTO_RELOAD'] = True
+    app.jinja_env.auto_reload = True
+    
+
 
     # Initialize SQLAlchemy and Migrate with the app
     db.init_app(app)
