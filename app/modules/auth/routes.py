@@ -65,7 +65,7 @@ def login():
         if time_blocked > 0:
             error = f"Too many requests. Please wait {time_blocked} seconds"
         else:
-            error = f"Invalid credentials. {attempts_left} {"attempts" if attempts_left > 1 else "attempt"} remaining"
+            error = f"Invalid credentials. {attempts_left} {'attempts' if attempts_left > 1 else 'attempt'} remaining"
 
         return render_template("auth/login_form.html", form=form, error=error)
 
