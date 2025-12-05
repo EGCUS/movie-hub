@@ -4,17 +4,22 @@
 
 {% block head_extra %}
 <style>
-    .placeholder-notice {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-        padding: 20px;
-        border-radius: 10px;
-        margin-bottom: 30px;
+    .author-entry {
+        background: #f8f9fa;
+        padding: 15px;
+        border-radius: 8px;
+        margin-bottom: 15px;
+        border: 1px solid #dee2e6;
     }
     
-    .disabled-section {
-        opacity: 0.6;
-        pointer-events: none;
+    .remove-author-btn {
+        margin-top: 10px;
+    }
+    
+    .add-author-section {
+        margin-top: 20px;
+        padding-top: 20px;
+        border-top: 2px solid #dee2e6;
     }
 </style>
 {% endblock %}
@@ -23,160 +28,308 @@
 
 <h1 class="h2 mb-3"><b>Upload</b> Movie Dataset</h1>
 
-<!-- Temporary Notice -->
-<div class="placeholder-notice">
-    <h4>🚧 Work in Progress</h4>
-    <p class="mb-0">
-        <strong>Note:</strong> This upload interface is currently under development. 
-        The upload workflow is being designed and will be implemented soon. 
-        This page shows the visual layout only.
-    </p>
-</div>
-
-<div class="row disabled-section">
-    <!-- Left Column: Basic Information -->
-    <div class="col-xl-6 col-lg-12 col-md-12 col-sm-12">
-        <div id="basic_info_form">
-            {{ form.hidden_tag() }}
-
+<form method="POST" enctype="multipart/form-data" id="uploadForm">
+    {{ form.hidden_tag() }}
+    
+    <div class="row">
+        <!-- Left Column: Basic Information -->
+        <div class="col-xl-6 col-lg-12 col-md-12 col-sm-12">
             <h1 class="h3 mb-3">Dataset Information</h1>
 
             <div class="row" style="padding-left: 2rem">
                 <!-- Title -->
                 <div class="col-12">
                     <div class="mb-3">
-                        <label class="form-label">Dataset Title *</label>
-                        <input type="text" class="form-control" placeholder="e.g., Classic Sci-Fi Collection">
+                        {{ form.title.label(class="form-label") }} <span class="text-danger">*</span>
+                        {{ form.title(class="form-control", placeholder="e.g., Classic Sci-Fi Collection") }}
+                        {% if form.title.errors %}
+                            <div class="text-danger small mt-1">
+                                {% for error in form.title.errors %}
+                                    {{ error }}
+                                {% endfor %}
+                            </div>
+                        {% endif %}
                     </div>
                 </div>
 
                 <!-- Description -->
                 <div class="col-12">
                     <div class="mb-3">
-                        <label class="form-label">Description *</label>
-                        <textarea rows="4" class="form-control" placeholder="Describe your movie collection..."></textarea>
+                        {{ form.desc.label(class="form-label") }} <span class="text-danger">*</span>
+                        {{ form.desc(class="form-control", rows="4", placeholder="Describe your movie collection...") }}
+                        {% if form.desc.errors %}
+                            <div class="text-danger small mt-1">
+                                {% for error in form.desc.errors %}
+                                    {{ error }}
+                                {% endfor %}
+                            </div>
+                        {% endif %}
                     </div>
                 </div>
 
                 <!-- Publication Type -->
                 <div class="col-lg-6 col-12">
                     <div class="mb-3">
-                        <label class="form-label">Publication Type</label>
-                        <select class="form-control">
-                            <option value="other">Other</option>
-                            <option value="datamanagementplan">Data Management Plan</option>
-                            <option value="article">Journal Article</option>
-                        </select>
+                        {{ form.publication_type.label(class="form-label") }} <span class="text-danger">*</span>
+                        {{ form.publication_type(class="form-control") }}
+                        {% if form.publication_type.errors %}
+                            <div class="text-danger small mt-1">
+                                {% for error in form.publication_type.errors %}
+                                    {{ error }}
+                                {% endfor %}
+                            </div>
+                        {% endif %}
                     </div>
                 </div>
 
                 <!-- Publication DOI -->
                 <div class="col-lg-6 col-12">
                     <div class="mb-3">
-                        <label class="form-label">Publication DOI</label>
-                        <input class="form-control" type="text" placeholder="10.1234/example">
+                        {{ form.publication_doi.label(class="form-label") }}
+                        {{ form.publication_doi(class="form-control", placeholder="10.1234/example") }}
+                        {% if form.publication_doi.errors %}
+                            <div class="text-danger small mt-1">
+                                {% for error in form.publication_doi.errors %}
+                                    {{ error }}
+                                {% endfor %}
+                            </div>
+                        {% endif %}
                     </div>
                 </div>
 
                 <!-- Tags -->
                 <div class="col-12">
                     <div class="mb-3">
-                        <label class="form-label">Tags (separated by commas)</label>
-                        <input type="text" class="form-control" placeholder="movies, cinema, classics">
+                        {{ form.tags.label(class="form-label") }}
+                        {{ form.tags(class="form-control", placeholder="movies, cinema, classics") }}
+                        <small class="form-text text-muted">Separate multiple tags with commas</small>
+                        {% if form.tags.errors %}
+                            <div class="text-danger small mt-1">
+                                {% for error in form.tags.errors %}
+                                    {{ error }}
+                                {% endfor %}
+                            </div>
+                        {% endif %}
                     </div>
                 </div>
             </div>
 
-            <!-- Authors Section -->
-            <h1 class="h3 mb-3 mt-4">Authors</h1>
+            <div class="col-12" id="authors-container">
+    {% if form.authors %}
+        {% for author_form in form.authors %}
+            {% if author_form.name %}
+            <div class="author-entry" data-author-index="{{ loop.index0 }}">
+                <div class="row">
+                    <div class="col-lg-12 mb-2">
+                        <label class="form-label fw-bold">Author {{ loop.index }}</label>
+                    </div>
+                    
+                    <div class="col-lg-6 col-12 mb-3">
+                        <label class="form-label">Name <span class="text-danger">*</span></label>
+                        {{ author_form.form.name(class="form-control", placeholder="Surname, Name") }}
+                    </div>
 
-            <div class="row" style="padding-left: 2rem">
-                <div class="col-lg-6 col-12 mb-3">
-                    <label class="form-label">Author name</label>
-                    <input class="form-control" disabled value="Surname, Name">
-                </div>
+                    <div class="col-lg-6 col-12 mb-3">
+                        <label class="form-label">Affiliation</label>
+                        {{ author_form.form.affiliation(class="form-control", placeholder="Institution or Organization") }}
+                    </div>
 
-                <div class="col-lg-6 col-12 mb-3">
-                    <label class="form-label">Author affiliation</label>
-                    <input class="form-control" disabled value="Your Institution">
-                </div>
-
-                <div class="col-lg-6 col-12 mb-3">
-                    <label class="form-label">Author ORCID</label>
-                    <input class="form-control" disabled value="0000-0000-0000-0000">
-                </div>
-
-                <div class="col-12">
-                    <button type="button" class="btn btn-secondary" disabled>Add author</button>
+                    <div class="col-lg-6 col-12 mb-3">
+                        <label class="form-label">ORCID</label>
+                        {{ author_form.form.orcid(class="form-control", placeholder="0000-0000-0000-0000") }}
+                        <small class="form-text text-muted">Optional but recommended</small>
+                    </div>
+                    
+                    {% if loop.index0 > 0 %}
+                    <div class="col-12">
+                        <button type="button" class="btn btn-sm btn-danger remove-author-btn" onclick="removeAuthor({{ loop.index0 }})">
+                            <i data-feather="x"></i> Remove Author
+                        </button>
+                    </div>
+                    {% endif %}
                 </div>
             </div>
-        </div>
-    </div>
-
-    <!-- Right Column: File Upload -->
-    <div class="col-xl-6 col-lg-12 col-md-12 col-sm-12">
-        <h1 class="h3 mb-3 mt-2">Movie Data Files</h1>
-
-        <div style="padding-left: 2rem">
-            <div class="alert alert-info">
-                <i data-feather="info"></i>
-                <strong>Expected format:</strong> JSON files containing movie information
-            </div>
-
-            <div id="upload_area" style="border: 2px dashed #ccc; padding: 40px; text-align: center; border-radius: 10px; background: #f8f9fa;">
-                <i data-feather="upload-cloud" style="width: 60px; height: 60px; color: #6c757d;"></i>
-                <p class="mt-3 mb-0 text-muted">
-                    <strong>Drag & drop files here</strong><br>
-                    or click to browse<br>
-                    <small>Accepted formats: .json</small>
-                </p>
-            </div>
-
-            <ul class="mt-3" id="file-list">
-                <!-- Placeholder files -->
-                <li class="mb-2">
-                    <strong>example_movies.json</strong>
-                    <span class="badge bg-secondary">25 KB</span>
-                    <button class="btn btn-sm btn-danger" style="margin-left: 10px;" disabled>Delete</button>
-                </li>
-            </ul>
-        </div>
-    </div>
+            {% endif %}
+        {% endfor %}
+    {% endif %}
 </div>
 
-<!-- Upload Button Section -->
-<div class="row mt-4 disabled-section">
-    <div class="col-12">
-        <hr>
-        <h1 class="h3 mb-3">Upload Dataset</h1>
+        </div>
 
-        <div style="padding-left: 2rem">
-            <label class="form-check">
-                <input class="form-check-input" type="checkbox" disabled>
-                <span class="form-check-label" style="font-size: 15px">
-                    I agree to have my movie dataset available according to the 
-                    <a href="https://en.wikipedia.org/wiki/Open_science" target="_blank">Open Science</a> principles
-                </span>
-            </label>
+        <!-- Right Column: File Upload -->
+        <div class="col-xl-6 col-lg-12 col-md-12 col-sm-12">
+            <h1 class="h3 mb-3 mt-2">Movie Data File</h1>
 
-            <button class="btn btn-primary mt-2" disabled>
-                <i data-feather="upload" class="center-button-icon"></i>
-                Upload Dataset
-            </button>
+            <div style="padding-left: 2rem">
+                <div class="alert alert-info">
+                    <i data-feather="info"></i>
+                    <strong>Expected format:</strong> JSON file containing movie information with the following structure:
+                    <pre class="mt-2 mb-0" style="font-size: 0.85rem;">
+{
+  "movies": [
+    {
+      "title": "Movie Title",
+      "year": 2024,
+      "director": "Director Name",
+      "genre": "Genre",
+      ...
+    }
+  ]
+}</pre>
+                </div>
 
-            <div class="alert alert-warning mt-3">
-                <i data-feather="alert-triangle"></i>
-                <strong>Coming Soon:</strong> The upload functionality is being implemented. 
-                Check back later for updates!
+                <div class="mb-3">
+                    {{ form.file.label(class="form-label") }} <span class="text-danger">*</span>
+                    <input type="file" class="form-control" id="fileInput" name="file" accept=".json" multiple>
+                    {% if form.file.errors %}
+                        <div class="text-danger small mt-1">
+                            {% for error in form.file.errors %}
+                                {{ error }}
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+                    <small class="form-text text-muted">Accepted formats: .json (max 10MB per file) - You can select multiple files</small>
+                </div>
+
+                <div id="file-preview" class="alert alert-secondary d-none">
+                    <strong>Selected files:</strong>
+                    <div id="file-list"></div>
+                </div>
             </div>
         </div>
     </div>
-</div>
+
+    <!-- Upload Button Section -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <hr>
+            <h1 class="h3 mb-3">Upload Dataset</h1>
+
+            <div style="padding-left: 2rem">
+                <label class="form-check mb-3">
+                    <input class="form-check-input" type="checkbox" id="agree_terms" required>
+                    <span class="form-check-label">
+                        I agree to have my movie dataset available according to the 
+                        <a href="https://en.wikipedia.org/wiki/Open_science" target="_blank">Open Science</a> principles
+                    </span>
+                </label>
+
+                <div>
+                    {{ form.submit(class="btn btn-primary btn-lg", id="submit_btn") }}
+                    <a href="{{ url_for('movie.list_datasets') }}" class="btn btn-secondary btn-lg ms-2">
+                        Cancel
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</form>
 
 <script>
+    let authorCount = {{ form.authors.entries|length if form.authors.entries else 1 }};
+
     document.addEventListener('DOMContentLoaded', function () {
         feather.replace();
+        
+        // Preview del archivo seleccionado
+        const fileInput = document.getElementById('fileInput');
+        const filePreview = document.getElementById('file-preview');
+        const fileList = document.getElementById('file-list');
+        
+        if (fileInput) {
+            fileInput.addEventListener('change', function() {
+                if (this.files && this.files.length > 0) {
+                    fileList.innerHTML = '';
+                    let hasErrors = false;
+                    
+                    Array.from(this.files).forEach((file, index) => {
+                        const fileInfo = document.createElement('div');
+                        fileInfo.className = 'mb-1';
+                        
+                        // Validar tamaño (10MB máximo)
+                        if (file.size > 10 * 1024 * 1024) {
+                            fileInfo.innerHTML = `<span class="text-danger">${file.name} — ${formatBytes(file.size)} (exceeds 10MB limit)</span>`;
+                            hasErrors = true;
+                        } else {
+                            fileInfo.innerHTML = `${index + 1}. ${file.name} — ${formatBytes(file.size)}`;
+                        }
+                        
+                        fileList.appendChild(fileInfo);
+                    });
+                    
+                    filePreview.classList.remove('d-none');
+                    
+                    if (hasErrors) {
+                        alert('One or more files exceed the 10MB limit. Please remove them and select smaller files.');
+                        this.value = '';
+                        filePreview.classList.add('d-none');
+                    }
+                } else {
+                    filePreview.classList.add('d-none');
+                }
+            });
+        }
     });
+
+    function formatBytes(bytes, decimals = 2) {
+        if (bytes === 0) return '0 Bytes';
+        const k = 1024;
+        const dm = decimals < 0 ? 0 : decimals;
+        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+    }
+
+    function addAuthor() {
+        const container = document.getElementById('authors-container');
+        const newIndex = authorCount;
+        
+        const authorHtml = `
+            <div class="author-entry" data-author-index="${newIndex}">
+                <div class="row">
+                    <div class="col-lg-12 mb-2">
+                        <label class="form-label fw-bold">Author ${newIndex + 1}</label>
+                    </div>
+                    
+                    <div class="col-lg-6 col-12 mb-3">
+                        <label class="form-label" for="authors-${newIndex}-name">Name <span class="text-danger">*</span></label>
+                        <input class="form-control" id="authors-${newIndex}-name" name="authors-${newIndex}-name" 
+                               placeholder="Surname, Name" required type="text">
+                    </div>
+
+                    <div class="col-lg-6 col-12 mb-3">
+                        <label class="form-label" for="authors-${newIndex}-affiliation">Affiliation</label>
+                        <input class="form-control" id="authors-${newIndex}-affiliation" 
+                               name="authors-${newIndex}-affiliation" placeholder="Institution or Organization" type="text">
+                    </div>
+
+                    <div class="col-lg-6 col-12 mb-3">
+                        <label class="form-label" for="authors-${newIndex}-orcid">ORCID</label>
+                        <input class="form-control" id="authors-${newIndex}-orcid" name="authors-${newIndex}-orcid" 
+                               placeholder="0000-0000-0000-0000" type="text">
+                        <small class="form-text text-muted">Optional but recommended</small>
+                    </div>
+                    
+                    <div class="col-12">
+                        <button type="button" class="btn btn-sm btn-danger remove-author-btn" onclick="removeAuthor(${newIndex})">
+                            <i data-feather="x"></i> Remove Author
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        container.insertAdjacentHTML('beforeend', authorHtml);
+        authorCount++;
+        feather.replace();
+    }
+
+    function removeAuthor(index) {
+        const authorEntry = document.querySelector(`[data-author-index="${index}"]`);
+        if (authorEntry) {
+            authorEntry.remove();
+        }
+    }
 </script>
 
 {% endblock %}
