@@ -1,7 +1,11 @@
+import hashlib
 import os
 from flask import abort
 from app import db
-from app.modules.movie.models import MovieDataset, Movie
+from app.modules.dataset.models import Author, DSMetaData
+from app.modules.featuremodel.models import FMMetaData, FeatureModel
+from app.modules.hubfile.models import Hubfile
+from app.modules.movie.models import DatasetChangeLog, MovieDataset, Movie
 import json
 from types import SimpleNamespace
 from app.modules.dataset.base_dataset import Version
@@ -9,6 +13,7 @@ from datetime import datetime
 from core.services.BaseService import BaseService
 from app.modules.movie.repositories import MovieRepository
 from app.modules.dataset.repositories import DSDownloadRecordRepository, DSViewRecordRepository
+from app.modules.fakenodo.adapter import FakenodoAdapter
 
 
 class SnapshotDataset:
@@ -19,7 +24,7 @@ class SnapshotDataset:
         self.ds_meta_data = metadata
 
 class SnapshotMovie:
-    """Película reconstruida desde snapshot."""
+    """Pelí­cula reconstruida desde snapshot."""
     def __init__(self, data):
         for k, v in data.items():
             setattr(self, k, v)
@@ -29,6 +34,7 @@ class MovieService(BaseService):
         super().__init__(MovieRepository())
         self.dsdownloadrecord_repository = DSDownloadRecordRepository()
         self.dsviewrecord_repostory = DSViewRecordRepository()
+        self.fakenodo_adapter = FakenodoAdapter()
     
     def total_dataset_downloads(self) -> int:
         return self.dsdownloadrecord_repository.total_dataset_downloads()
@@ -74,6 +80,157 @@ class MovieService(BaseService):
         return movie
     
     
+    def upload_and_publish_dataset(self, form, current_user, dsmetadata_service):
+        """
+        Crea y sube un dataset completo con todos sus archivos y películas.
+        Retorna el dataset creado y el total de películas procesadas.
+        """
+        metadata = DSMetaData(
+            title=form.title.data,
+            description=form.desc.data,
+            publication_type=form.convert_publication_type(form.publication_type.data),
+            publication_doi=form.publication_doi.data or None,
+            tags=form.tags.data or None
+        )
+        db.session.add(metadata)
+        db.session.flush()
+        
+        for author_data in form.get_authors():
+            if author_data['name']:
+                author = Author(
+                    name=author_data['name'],
+                    affiliation=author_data.get('affiliation'),
+                    orcid=author_data.get('orcid'),
+                    ds_meta_data_id=metadata.id
+                )
+                db.session.add(author)
+        
+        movie_dataset = MovieDataset(
+            user_id=current_user.id,
+            ds_meta_data_id=metadata.id
+        )
+        db.session.add(movie_dataset)
+        db.session.flush()
+        
+        if not movie_dataset.id:
+            raise Exception("Failed to create MovieDataset - ID is NULL")
+        
+        db.session.commit()
+        
+        # Fakenodo
+        fakenodo_response = self.fakenodo_adapter.create_fakenodo(movie_dataset)
+        fakenodo_id = fakenodo_response.get("id")
+        deposition_id = fakenodo_response.get("deposition_id")
+        dsmetadata_service.update(metadata.id, deposition_id=deposition_id)
+        db.session.commit()
+        
+        # carpeta local
+        dataset_folder = f"uploads/user_{current_user.id}/dataset_{movie_dataset.id}"
+        os.makedirs(dataset_folder, exist_ok=True)
+        
+        # Procesar archivos
+        files = form.file.data
+        if not files or len(files) == 0:
+            raise ValueError("No files uploaded")
+        
+        total_movies = 0
+        for file in files:
+            if not file or file.filename == '':
+                continue
+            
+            file_content = file.read()
+            
+            # Validar JSON
+            try:
+                movie_data = json.loads(file_content)
+                if isinstance(movie_data, list):
+                    movie_data = {"movies": movie_data}
+                elif isinstance(movie_data, dict) and 'movies' not in movie_data:
+                    raise ValueError("JSON object must contain a 'movies' key with an array")
+                elif not isinstance(movie_data, dict):
+                    raise ValueError("JSON must be an array or an object with 'movies' key")
+            except json.JSONDecodeError as e:
+                raise ValueError(f"Invalid JSON in {file.filename}: {str(e)}")
+            
+            # Guardar localmente
+            local_file_path = os.path.join(dataset_folder, file.filename)
+            with open(local_file_path, 'wb') as f:
+                f.write(file_content)
+            
+            # Subir a Fakenodo
+            self.fakenodo_adapter.upload_file_to_fakenodo(
+                fakenodo_id=fakenodo_id,
+                file_content=file_content,
+                filename=file.filename,
+                dataset_id=movie_dataset.id
+            )
+            
+            fm_meta = FMMetaData(
+                filename=file.filename,
+                title=f"{metadata.title} - {file.filename}",
+                description="Movie dataset JSON",
+                publication_type=metadata.publication_type,
+                tags="movies,json",
+                version="1.0"
+            )
+            db.session.add(fm_meta)
+            db.session.flush()
+            
+            feature_model = FeatureModel(
+                data_set_id=movie_dataset.id,
+                fm_meta_data_id=fm_meta.id
+            )
+            db.session.add(feature_model)
+            db.session.flush()
+            
+            file_hash = hashlib.md5(file_content).hexdigest()
+            hubfile = Hubfile(
+                name=file.filename,
+                checksum=file_hash,
+                size=len(file_content),
+                feature_model_id=feature_model.id
+            )
+            db.session.add(hubfile)
+            
+            for movie_dict in movie_data.get('movies', []):
+                movie = Movie(
+                    movie_dataset_id=movie_dataset.id,
+                    title=movie_dict.get('title'),
+                    original_title=movie_dict.get('original_title'),
+                    year=movie_dict.get('year'),
+                    duration=movie_dict.get('duration'),
+                    country=movie_dict.get('country'),
+                    director=movie_dict.get('director'),
+                    production_company=movie_dict.get('production_company'),
+                    genre=movie_dict.get('genre'),
+                    synopsis=movie_dict.get('synopsis'),
+                    imdb_rating=movie_dict.get('imdb_rating'),
+                    imdb_votes=movie_dict.get('imdb_votes'),
+                    poster_url=movie_dict.get('poster_url'),
+                    screenplay=movie_dict.get('screenplay'),
+                    cast=movie_dict.get('cast'),
+                    awards=movie_dict.get('awards')
+                )
+                db.session.add(movie)
+            
+            movies_count = len(movie_data.get('movies', []))
+            total_movies += movies_count
+        
+        # Finalizar
+        movie_dataset.update_files_info()
+        db.session.commit()
+        
+        # Crear versión inicial
+        self.create_version(movie_dataset)
+        
+        # Publicar
+        dataset_doi = f"10.1234/{metadata.title.lower().replace(' ', '')}"
+        dsmetadata_service.update(metadata.id, dataset_doi=dataset_doi)
+        self.fakenodo_adapter.publish_fakenodo(fakenodo_id)
+        
+        return movie_dataset, total_movies
+    
+    
     #POR HACER
     def create_dataset(self, form, current_user):
         """
@@ -81,12 +238,6 @@ class MovieService(BaseService):
         añadir self.create_version(dataset) al final para poder crear las versiones
         """
         raise NotImplementedError("Dataset creation not yet implemented")
-    
-    def update_dataset(self, dataset, form):
-        """
-        TODO
-        """
-        raise NotImplementedError("Dataset update not yet implemented")
     
     #Método delete??
 
@@ -98,13 +249,15 @@ class MovieService(BaseService):
     def create_version(self, dataset: MovieDataset):
         """Crea una nueva versión del dataset guardando un snapshot JSON."""
 
-        version_number = str(len(dataset.versions) + 1)
+        version_number = str(len(dataset.versions) + 1.0)
 
         version = Version(
             dataset_id=dataset.id,
             version_number=version_number,
             created_at=datetime.utcnow()
         )
+        
+        dataset.current_version = version_number
 
         db.session.add(version)
         db.session.flush()
@@ -231,3 +384,4 @@ class MovieService(BaseService):
         v2 = self.load_dataset_from_version(version_id_2)
 
         return self.compare_versions(v1, v2)
+    
