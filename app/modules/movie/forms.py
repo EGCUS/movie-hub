@@ -64,3 +64,21 @@ class MovieForm(FlaskForm):
     def get_authors(self):
         return [author.get_author() for author in self.authors]
     
+    
+class MovieEditMetadataForm(FlaskForm):
+    """Form for minor metadata edits (no new DOI)"""
+    title = StringField("Title", validators=[DataRequired(), Length(max=120)])
+    desc = TextAreaField("Description", validators=[DataRequired()])
+    tags = StringField("Tags (separated by commas)", validators=[Optional()])
+    authors = FieldList(FormField(AuthorForm), min_entries=1)
+    
+    edit_comment = TextAreaField(
+        "Edit Comment", 
+        validators=[Optional(), Length(max=500)],
+        description="Optional: Describe what you changed"
+    )
+    
+    submit = SubmitField("Save Changes")
+
+    def get_authors(self):
+        return [author.get_author() for author in self.authors]

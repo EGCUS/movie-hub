@@ -5,7 +5,7 @@ from app import db
 from app.modules.dataset.models import Author, DSMetaData
 from app.modules.featuremodel.models import FMMetaData, FeatureModel
 from app.modules.hubfile.models import Hubfile
-from app.modules.movie.models import MovieDataset, Movie
+from app.modules.movie.models import DatasetChangeLog, MovieDataset, Movie
 import json
 from types import SimpleNamespace
 from app.modules.dataset.base_dataset import Version
@@ -384,4 +384,90 @@ class MovieService(BaseService):
         v2 = self.load_dataset_from_version(version_id_2)
 
         return self.compare_versions(v1, v2)
+    
+     ###################
+    # MINOR EDIT METHODS (No new DOI)
+
+    def edit_metadata(self, dataset: MovieDataset, new_title: str, new_description: str, new_tags: str, user_id: int, comment: str = None):
+        changes = {}
+        
+        # Detectar cambios
+        if dataset.ds_meta_data.title != new_title:
+            changes['title'] = {
+                'old': dataset.ds_meta_data.title,
+                'new': new_title
+            }
+            dataset.ds_meta_data.title = new_title
+        
+        if dataset.ds_meta_data.description != new_description:
+            changes['description'] = {
+                'old': dataset.ds_meta_data.description,
+                'new': new_description
+            }
+            dataset.ds_meta_data.description = new_description
+        
+        if dataset.ds_meta_data.tags != new_tags:
+            changes['tags'] = {
+                'old': dataset.ds_meta_data.tags,
+                'new': new_tags
+            }
+            dataset.ds_meta_data.tags = new_tags
+        
+        # Si hubo cambios, registrar en changelog
+        if changes:
+            changelog = DatasetChangeLog(
+                dataset_id=dataset.id,
+                user_id=user_id,
+                change_type='metadata',
+                changes=changes,
+                comment=comment
+            )
+            db.session.add(changelog)
+            db.session.commit()
+            
+        return changes
+
+    def edit_authors(self, dataset: MovieDataset, new_authors: list, user_id: int, comment: str = None):
+
+        # Guardar autores antiguos para el log
+        old_authors = [
+            {'name': a.name, 'affiliation': a.affiliation, 'orcid': a.orcid}
+            for a in dataset.ds_meta_data.authors
+        ]
+        
+        # Eliminar autores actuales
+        Author.query.filter_by(ds_meta_data_id=dataset.ds_meta_data.id).delete()
+        
+        # Crear nuevos autores
+        for author_data in new_authors:
+            if author_data.get('name'):
+                author = Author(
+                    name=author_data['name'],
+                    affiliation=author_data.get('affiliation'),
+                    orcid=author_data.get('orcid'),
+                    ds_meta_data_id=dataset.ds_meta_data.id
+                )
+                db.session.add(author)
+        
+        # Registrar en changelog
+        changelog = DatasetChangeLog(
+            dataset_id=dataset.id,
+            user_id=user_id,
+            change_type='authors',
+            changes={
+                'old_authors': old_authors,
+                'new_authors': new_authors
+            },
+            comment=comment
+        )
+        db.session.add(changelog)
+        db.session.commit()
+        
+        return True
+
+    def get_change_history(self, dataset_id: int):
+        """Obtiene el historial de cambios menores de un dataset"""
+        return DatasetChangeLog.query.filter_by(
+            dataset_id=dataset_id
+        ).order_by(DatasetChangeLog.created_at.desc()).all()
     
