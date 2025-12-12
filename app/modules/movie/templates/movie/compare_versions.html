@@ -15,7 +15,74 @@
         <small class="text-muted">(v{{ v2.id }})</small>
     </h2>
 
+    <!-- ========================= -->
+    <!-- FILE CHANGES -->
+    <!-- ========================= -->
+    <div class="card mb-4">
+        <div class="card-header bg-secondary text-white">
+            <strong>File Changes</strong>
+        </div>
+        <div class="card-body">
+
+            <h5>➕ Added files</h5>
+            {% if comparison.files.files_added %}
+                <ul>
+                    {% for f in comparison.files.files_added %}
+                        <li>
+                            {{ f["name"] }}
+                            {% if f["size_in_human_format"] is defined %}
+                                ({{ f["size_in_human_format"] }})
+                            {% endif %}
+                        </li>
+                    {% endfor %}
+                </ul>
+            {% else %}
+                <p class="text-muted">No files added.</p>
+            {% endif %}
+
+            <h5 class="mt-3">➖ Removed files</h5>
+            {% if comparison.files.files_removed %}
+                <ul>
+                    {% for f in comparison.files.files_removed %}
+                        <li>{{ f["name"] }}</li>
+                    {% endfor %}
+                </ul>
+            {% else %}
+                <p class="text-muted">No files removed.</p>
+            {% endif %}
+
+
+            <h5 class="mt-3">✏️ Modified files</h5>
+            {% if comparison.files.files_modified %}
+                <ul>
+                    {% for f in comparison.files.files_modified %}
+                        <li>
+                            <strong>{{ f.name }}</strong><br>
+                            <small class="text-muted">
+                                checksum:
+                                {{ f.old.checksum[:8] }}
+                                →
+                                {{ f.new.checksum[:8] }}
+                                <br>
+                                size:
+                                {{ f.old.size }} → {{ f.new.size }} bytes
+                            </small>
+                        </li>
+                    {% endfor %}
+
+                </ul>
+            {% else %}
+                <p class="text-muted">No files modified.</p>
+            {% endif %}
+
+
+
+        </div>
+    </div>
+
+    <!-- ========================= -->
     <!-- METADATA CHANGES -->
+    <!-- ========================= -->
     <div class="card mb-4">
         <div class="card-header bg-info text-white">
             <strong>Metadata Changes</strong>
@@ -35,8 +102,8 @@
                     {% for key, change in comparison.metadata_changed.items() %}
                         <tr>
                             <td><strong>{{ key }}</strong></td>
-                            <td class="text-danger">{{ change.old }}</td>
-                            <td class="text-success">{{ change.new }}</td>
+                            <td class="text-danger">{{ change["old"] }}</td>
+                            <td class="text-success">{{ change["new"] }}</td>
                         </tr>
                     {% endfor %}
                     </tbody>
@@ -47,7 +114,9 @@
         </div>
     </div>
 
+    <!-- ========================= -->
     <!-- MOVIES ADDED -->
+    <!-- ========================= -->
     <div class="card mb-4">
         <div class="card-header bg-success text-white">
             <strong>Movies Added</strong>
@@ -56,10 +125,7 @@
             {% if comparison.movies_added %}
                 <ul>
                     {% for movie in comparison.movies_added %}
-                        <li>
-                            <strong>{{ movie.title }}</strong>
-                            {% if movie.year %} ({{ movie.year }}) {% endif %}
-                        </li>
+                        <li><strong>{{ movie["logical_id"] }}</strong></li>
                     {% endfor %}
                 </ul>
             {% else %}
@@ -68,7 +134,9 @@
         </div>
     </div>
 
+    <!-- ========================= -->
     <!-- MOVIES REMOVED -->
+    <!-- ========================= -->
     <div class="card mb-4">
         <div class="card-header bg-danger text-white">
             <strong>Movies Removed</strong>
@@ -77,10 +145,7 @@
             {% if comparison.movies_removed %}
                 <ul>
                     {% for movie in comparison.movies_removed %}
-                        <li>
-                            <strong>{{ movie.title }}</strong>
-                            {% if movie.year %} ({{ movie.year }}) {% endif %}
-                        </li>
+                        <li><strong>{{ movie["logical_id"] }}</strong></li>
                     {% endfor %}
                 </ul>
             {% else %}
@@ -89,7 +154,9 @@
         </div>
     </div>
 
+    <!-- ========================= -->
     <!-- MOVIES MODIFIED -->
+    <!-- ========================= -->
     <div class="card mb-4">
         <div class="card-header bg-warning text-dark">
             <strong>Movies Modified</strong>
@@ -100,7 +167,7 @@
                 {% for item in comparison.movies_modified %}
                     <div class="border rounded p-3 mb-3">
                         <h5 class="mb-2">
-                            Movie ID: {{ item.movie_id }}
+                            Logical ID: {{ item["logical_id"] }}
                         </h5>
 
                         <table class="table table-bordered">
@@ -112,11 +179,11 @@
                                 </tr>
                             </thead>
                             <tbody>
-                            {% for key, values in item.changes.items() %}
+                            {% for key, values in item["changes"].items() %}
                                 <tr>
                                     <td><strong>{{ key }}</strong></td>
-                                    <td class="text-danger">{{ values.old }}</td>
-                                    <td class="text-success">{{ values.new }}</td>
+                                    <td class="text-danger">{{ values["old"] }}</td>
+                                    <td class="text-success">{{ values["new"] }}</td>
                                 </tr>
                             {% endfor %}
                             </tbody>

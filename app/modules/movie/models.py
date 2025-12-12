@@ -3,6 +3,9 @@ from app import db
 from app.modules.dataset.base_dataset import BaseDataset
 
 
+# =========================================================
+# DATASET CHANGE LOG
+# =========================================================
 
 class DatasetChangeLog(db.Model):
     """Log de cambios menores en datasets (sin nuevo DOI)"""
@@ -12,7 +15,7 @@ class DatasetChangeLog(db.Model):
     dataset_id = db.Column(db.Integer, db.ForeignKey('base_dataset.id'), nullable=False)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     
-    # TIPO
+    # Tipo de cambio
     change_type = db.Column(db.String(50), nullable=False)
     changes = db.Column(db.JSON, nullable=False)
     comment = db.Column(db.Text)
@@ -31,18 +34,42 @@ class DatasetChangeLog(db.Model):
             "changes": self.changes,
             "comment": self.comment,
             "created_at": self.created_at.isoformat() if self.created_at else None,
-            "user_name": f"{self.user.profile.name} {self.user.profile.surname}" if self.user and self.user.profile else "Unknown"
+            "user_name": (
+                f"{self.user.profile.name} {self.user.profile.surname}"
+                if self.user and self.user.profile else "Unknown"
+            )
         }
     
     def __repr__(self):
         return f"<DatasetChangeLog {self.id}: {self.change_type} on dataset {self.dataset_id}>"
+
+
+# =========================================================
+# MOVIE
+# =========================================================
+
 class Movie(db.Model):
     """Modelo para películas individuales"""
     __tablename__ = "movie"
+
+    __table_args__ = (
+        db.UniqueConstraint(
+            "movie_dataset_id",
+            "logical_id",
+            name="uq_movie_dataset_logical_id"
+        ),
+    )
     
     id = db.Column(db.Integer, primary_key=True)
-    movie_dataset_id = db.Column(db.Integer, db.ForeignKey('movie_dataset.id'), nullable=False)
-    
+    movie_dataset_id = db.Column(
+        db.Integer,
+        db.ForeignKey('movie_dataset.id'),
+        nullable=False
+    )
+
+    # Identidad lógica (MISMA película a lo largo del tiempo)
+    logical_id = db.Column(db.String(128), nullable=False)
+
     # Información básica
     title = db.Column(db.String(255), nullable=False)
     original_title = db.Column(db.String(255))
@@ -58,21 +85,22 @@ class Movie(db.Model):
     genre = db.Column(db.String(255))
     synopsis = db.Column(db.Text)
     
-    # IMDB
+    # IMDb
     imdb_rating = db.Column(db.Float)
     imdb_votes = db.Column(db.Integer)
     
     poster_url = db.Column(db.String(500))
     poster_local_path = db.Column(db.String(500))
     
-    screenplay = db.Column(db.JSON) 
+    screenplay = db.Column(db.JSON)
     cast = db.Column(db.JSON)
     awards = db.Column(db.JSON)
     
     def to_dict(self):
-        """Convierte la pelí­cula a diccionario"""
+        """Convierte la película a diccionario"""
         return {
             "id": self.id,
+            "logical_id": self.logical_id,
             "title": self.title,
             "original_title": self.original_title,
             "year": self.year,
@@ -94,16 +122,24 @@ class Movie(db.Model):
         return f"<Movie {self.id}: {self.title} ({self.year})>"
 
 
+# =========================================================
+# MOVIE DATASET
+# =========================================================
+
 class MovieDataset(BaseDataset):
-    """Dataset que contiene múltiples pelí­culas"""
+    """Dataset que contiene múltiples películas"""
     __tablename__ = "movie_dataset"
     
-    id = db.Column(db.Integer, db.ForeignKey('base_dataset.id'), primary_key=True)
+    id = db.Column(
+        db.Integer,
+        db.ForeignKey('base_dataset.id'),
+        primary_key=True
+    )
     
     movies = db.relationship(
-        "Movie", 
-        backref="dataset", 
-        lazy=True, 
+        "Movie",
+        backref="dataset",
+        lazy=True,
         cascade="all, delete-orphan"
     )
     
@@ -112,7 +148,7 @@ class MovieDataset(BaseDataset):
     }
     
     def get_movies_count(self):
-        """Retorna el número de pelí­culas en el dataset"""
+        """Retorna el número de películas en el dataset"""
         return len(self.movies)
     
     @property
@@ -127,8 +163,14 @@ class MovieDataset(BaseDataset):
             "dataset_type": self.dataset_type,
             "title": self.ds_meta_data.title if self.ds_meta_data else None,
             "description": self.ds_meta_data.description if self.ds_meta_data else None,
-            "tags": self.ds_meta_data.tags.split(",") if self.ds_meta_data and self.ds_meta_data.tags else [],
-            "authors": [a.to_dict() for a in self.ds_meta_data.authors] if self.ds_meta_data and self.ds_meta_data.authors else [],
+            "tags": (
+                self.ds_meta_data.tags.split(",")
+                if self.ds_meta_data and self.ds_meta_data.tags else []
+            ),
+            "authors": (
+                [a.to_dict() for a in self.ds_meta_data.authors]
+                if self.ds_meta_data and self.ds_meta_data.authors else []
+            ),
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "movies_count": self.get_movies_count(),
             "movies": [movie.to_dict() for movie in self.movies],
