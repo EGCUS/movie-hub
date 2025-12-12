@@ -111,3 +111,11 @@ jobs:
     name: Run tests
     needs: validate-commits
     uses: ./.github/workflows/tests.yml
+
+  dockerhub-deploy:
+    name: Deploy to dockerhub
+    needs: merge-to-develop
+    uses: ./.github/workflows/dockerhub_develop.yml
+    secrets:
+      DOCKER_USER: ${{ secrets.DOCKER_USER }}
+      DOCKER_PASSWORD_DEV: ${{ secrets.DOCKER_PASSWORD_DEV }}
