@@ -115,44 +115,19 @@ class MovieService(BaseService):
         return movie_dataset, total_movies
     
     
-    def upload_draft_dataset(self, form, current_user, dsmetadata_service):
     
+    def upload_draft_dataset(self, form, current_user, dsmetadata_service):
+        movie_dataset = None
+        
         try:
-            metadata = DSMetaData(
-                title=form.title.data,
-                description=form.desc.data,
-                publication_type=form.convert_publication_type(form.publication_type.data),
-                publication_doi=form.publication_doi.data or None,
-                tags=form.tags.data or None
-            )
-            db.session.add(metadata)
-            db.session.flush()
-            
-            for author_data in form.get_authors():
-                if author_data['name']:
-                    author = Author(
-                        name=author_data['name'],
-                        affiliation=author_data.get('affiliation'),
-                        orcid=author_data.get('orcid'),
-                        ds_meta_data_id=metadata.id
-                    )
-                    db.session.add(author)
-            
-            movie_dataset = MovieDataset(
-                user_id=current_user.id,
-                ds_meta_data_id=metadata.id
-            )
-            db.session.add(movie_dataset)
-            db.session.flush()
-            
-            if not movie_dataset.id:
-                raise Exception("Failed to create MovieDataset - ID is NULL")
+            # Crear metadata, autores y dataset
+            movie_dataset = self._create_movie_dataset_with_metadata(form, current_user)
             
             # Fakenodo
             fakenodo_response = self.fakenodo_adapter.create_fakenodo(movie_dataset)
             fakenodo_id = fakenodo_response.get("id")
             deposition_id = fakenodo_response.get("deposition_id")
-            dsmetadata_service.update(metadata.id, deposition_id=deposition_id)
+            dsmetadata_service.update(movie_dataset.ds_meta_data.id, deposition_id=deposition_id)
             
             # carpeta local
             dataset_folder = f"uploads/user_{current_user.id}/dataset_{movie_dataset.id}"
@@ -195,65 +170,23 @@ class MovieService(BaseService):
                     dataset_id=movie_dataset.id
                 )
                 
-                fm_meta = FMMetaData(
-                    filename=file.filename,
-                    title=f"{metadata.title} - {file.filename}",
-                    description="Movie dataset JSON",
-                    publication_type=metadata.publication_type,
-                    tags="movies,json",
-                    version="1.0"
+                # Crear FeatureModel y Hubfile
+                self._create_feature_model_and_hubfile(
+                    file.filename, 
+                    file_content, 
+                    movie_dataset
                 )
-                db.session.add(fm_meta)
-                db.session.flush()
                 
-                feature_model = FeatureModel(
-                    data_set_id=movie_dataset.id,
-                    fm_meta_data_id=fm_meta.id
-                )
-                db.session.add(feature_model)
-                db.session.flush()
-                
-                file_hash = hashlib.md5(file_content).hexdigest()
-                hubfile = Hubfile(
-                    name=file.filename,
-                    checksum=file_hash,
-                    size=len(file_content),
-                    feature_model_id=feature_model.id
-                )
-                db.session.add(hubfile)
-                
-                for movie_dict in movie_data.get('movies', []):
-                    movie = Movie(
-                        movie_dataset_id=movie_dataset.id,
-                        title=movie_dict.get('title'),
-                        original_title=movie_dict.get('original_title'),
-                        year=movie_dict.get('year'),
-                        duration=movie_dict.get('duration'),
-                        country=movie_dict.get('country'),
-                        director=movie_dict.get('director'),
-                        production_company=movie_dict.get('production_company'),
-                        genre=movie_dict.get('genre'),
-                        synopsis=movie_dict.get('synopsis'),
-                        imdb_rating=movie_dict.get('imdb_rating'),
-                        imdb_votes=movie_dict.get('imdb_votes'),
-                        poster_url=movie_dict.get('poster_url'),
-                        screenplay=movie_dict.get('screenplay'),
-                        cast=movie_dict.get('cast'),
-                        awards=movie_dict.get('awards')
-                    )
-                    db.session.add(movie)
-                
-                movies_count = len(movie_data.get('movies', []))
+                movies_count = self._create_movies(movie_data, movie_dataset.id)
                 total_movies += movies_count
             
             # Finalizar
             movie_dataset.update_files_info()
             
-            # Crear versión inicial
             self.create_version(movie_dataset)
             
-            dataset_doi = f"10.1234/{metadata.title.lower().replace(' ', '')}{metadata.id}"
-            dsmetadata_service.update(metadata.id, dataset_doi=dataset_doi)
+            dataset_doi = f"10.1234/{movie_dataset.ds_meta_data.title.lower().replace(' ', '')}{movie_dataset.ds_meta_data.id}"
+            dsmetadata_service.update(movie_dataset.ds_meta_data.id, dataset_doi=dataset_doi)
             
             db.session.commit()
             
@@ -261,17 +194,117 @@ class MovieService(BaseService):
             
         except Exception as e:
             db.session.rollback()
-        
-        try:
-            dataset_folder = f"uploads/user_{current_user.id}/dataset_{movie_dataset.id if 'movie_dataset' in locals() else 'unknown'}"
-            if os.path.exists(dataset_folder):
-                import shutil
-                shutil.rmtree(dataset_folder)
-        except:
-            pass
-        
-        raise e
+            
+            # Limpiar carpeta si hay error
+            try:
+                dataset_folder = f"uploads/user_{current_user.id}/dataset_{movie_dataset.id if movie_dataset else 'unknown'}"
+                if os.path.exists(dataset_folder):
+                    import shutil
+                    shutil.rmtree(dataset_folder)
+            except:
+                pass
+            
+            raise
     
+    
+    def _create_movie_dataset_with_metadata(self, form, current_user):
+        """Crea metadata, autores y el MovieDataset"""
+        metadata = DSMetaData(
+            title=form.title.data,
+            description=form.desc.data,
+            publication_type=form.convert_publication_type(form.publication_type.data),
+            publication_doi=form.publication_doi.data or None,
+            tags=form.tags.data or None
+        )
+        db.session.add(metadata)
+        db.session.flush()
+        
+        for author_data in form.get_authors():
+            if author_data['name']:
+                author = Author(
+                    name=author_data['name'],
+                    affiliation=author_data.get('affiliation'),
+                    orcid=author_data.get('orcid'),
+                    ds_meta_data_id=metadata.id
+                )
+                db.session.add(author)
+        
+        movie_dataset = MovieDataset(
+            user_id=current_user.id,
+            ds_meta_data_id=metadata.id
+        )
+        db.session.add(movie_dataset)
+        db.session.flush()
+        
+        if not movie_dataset.id:
+            raise Exception("Failed to create MovieDataset - ID is NULL")
+        
+        return movie_dataset
+    
+    
+    def _create_movies(self, movie_data, dataset_id):
+        """Crea las películas en la BD desde el JSON"""
+        movies_list = movie_data.get('movies', [])
+        
+        for movie_dict in movies_list:
+            logical_id = self.generate_logical_id(movie_dict)
+            movie = Movie(
+                movie_dataset_id=dataset_id,
+                logical_id=logical_id,
+                title=movie_dict.get('title'),
+                original_title=movie_dict.get('original_title'),
+                year=movie_dict.get('year'),
+                duration=movie_dict.get('duration'),
+                country=movie_dict.get('country'),
+                director=movie_dict.get('director'),
+                production_company=movie_dict.get('production_company'),
+                genre=movie_dict.get('genre'),
+                synopsis=movie_dict.get('synopsis'),
+                imdb_rating=movie_dict.get('imdb_rating'),
+                imdb_votes=movie_dict.get('imdb_votes'),
+                poster_url=movie_dict.get('poster_url'),
+                screenplay=movie_dict.get('screenplay'),
+                cast=movie_dict.get('cast'),
+                awards=movie_dict.get('awards')
+            )
+            db.session.add(movie)
+        
+        return len(movies_list)
+    
+    
+    def _create_feature_model_and_hubfile(self, filename, file_content, movie_dataset):
+        """Crea FMMetaData, FeatureModel y Hubfile para un archivo"""
+        fm_meta = FMMetaData(
+            filename=filename,
+            title=f"{movie_dataset.ds_meta_data.title} - {filename}",
+            description="Movie dataset JSON",
+            publication_type=movie_dataset.ds_meta_data.publication_type,
+            tags="movies,json",
+            version="1.0"
+        )
+        db.session.add(fm_meta)
+        db.session.flush()
+        
+        feature_model = FeatureModel(
+            data_set_id=movie_dataset.id,
+            fm_meta_data_id=fm_meta.id
+        )
+        db.session.add(feature_model)
+        db.session.flush()
+        
+        file_hash = hashlib.md5(file_content).hexdigest()
+        hubfile = Hubfile(
+            name=filename,
+            checksum=file_hash,
+            size=len(file_content),
+            feature_model_id=feature_model.id
+        )
+        db.session.add(hubfile)
+    
+    
+    def generate_logical_id(self,data: dict) -> str:
+            base = f"{data.get('title')}|{data.get('year')}|{data.get('director')}"
+            return hashlib.sha1(base.encode("utf-8")).hexdigest()
     
     #POR HACER
     def create_dataset(self, form, current_user):
