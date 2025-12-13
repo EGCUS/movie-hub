@@ -188,7 +188,7 @@ def test_upload_dataset_ok(mock_db, MockFakenodoService, test_client):
                 "dataset_id": kwargs["dataset_id"],
                 "file_path": "datasets/fakenodo_7/dataset_1/dataset.csv",
                 "checksum": "fakechecksum123",
-                "status": "dataset_uploaded",
+                "status": "draft",
             }
 
     # Cuando en la ruta se haga FakenodoService(), devolvemos nuestro fake
@@ -212,7 +212,7 @@ def test_upload_dataset_ok(mock_db, MockFakenodoService, test_client):
     assert json_data["ok"] is True
     assert json_data["fakenodo_id"] == 7
     assert json_data["dataset_id"] == 1
-    assert json_data["status"] == "dataset_uploaded"
+    assert json_data["status"] == "draft"
     assert "file_path" in json_data
     assert "checksum" in json_data
 
