@@ -1,6 +1,7 @@
 from datetime import datetime
 from app import db
 from app.modules.dataset.base_dataset import BaseDataset
+from app.modules.fakenodo.models import Fakenodo
 
 
 # =========================================================
@@ -150,6 +151,20 @@ class MovieDataset(BaseDataset):
     def get_movies_count(self):
         """Retorna el número de películas en el dataset"""
         return len(self.movies)
+    
+    #NUEVOS MÉTODOS PARA SABER EL ESTADO EN FAKENODO
+    
+    def is_published(self):
+        fakenodo = Fakenodo.query.filter_by(dataset_id=self.id).first()
+        return fakenodo and fakenodo.status == "published"
+
+    def get_fakenodo_doi(self):
+        fakenodo = Fakenodo.query.filter_by(dataset_id=self.id).first()
+        return fakenodo.doi if fakenodo and fakenodo.status == "published" else None
+
+    def get_fakenodo_status(self):
+        fakenodo = Fakenodo.query.filter_by(dataset_id=self.id).first()
+        return fakenodo.status if fakenodo else "not_created"
     
     @property
     def user(self):

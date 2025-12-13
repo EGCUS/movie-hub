@@ -21,10 +21,50 @@
         padding-top: 20px;
         border-top: 2px solid #dee2e6;
     }
+
+    /* Toast notification styles */
+    .toast-notification {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: #28a745;
+        color: white;
+        padding: 20px 30px;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        z-index: 9999;
+        display: none;
+        animation: slideIn 0.3s ease-out;
+    }
+
+    @keyframes slideIn {
+        from {
+            transform: translateX(400px);
+            opacity: 0;
+        }
+        to {
+            transform: translateX(0);
+            opacity: 1;
+        }
+    }
+
+    .toast-notification.show {
+        display: block;
+    }
+
+    .toast-notification i {
+        margin-right: 10px;
+    }
 </style>
 {% endblock %}
 
 {% block content %}
+
+<!-- Toast Notification -->
+<div id="successToast" class="toast-notification">
+    <i data-feather="check-circle"></i>
+    <span id="toastMessage">Dataset uploaded successfully!</span>
+</div>
 
 <h1 class="h2 mb-3"><b>Upload</b> Movie Dataset</h1>
 
@@ -114,46 +154,62 @@
                 </div>
             </div>
 
+            <!-- Authors Section -->
+            <h1 class="h3 mb-3 mt-4">Authors</h1>
             <div class="col-12" id="authors-container">
-    {% if form.authors %}
-        {% for author_form in form.authors %}
-            {% if author_form.name %}
-            <div class="author-entry" data-author-index="{{ loop.index0 }}">
-                <div class="row">
-                    <div class="col-lg-12 mb-2">
-                        <label class="form-label fw-bold">Author {{ loop.index }}</label>
-                    </div>
-                    
-                    <div class="col-lg-6 col-12 mb-3">
-                        <label class="form-label">Name <span class="text-danger">*</span></label>
-                        {{ author_form.form.name(class="form-control", placeholder="Surname, Name") }}
-                    </div>
+                {% if form.authors %}
+                    {% for author_form in form.authors %}
+                        {% if author_form.name %}
+                        <div class="author-entry" data-author-index="{{ loop.index0 }}">
+                            <div class="row">
+                                <div class="col-lg-12 mb-2">
+                                    <label class="form-label fw-bold">Author {{ loop.index }}</label>
+                                    {% if loop.index0 == 0 %}
+                                        <span class="badge bg-primary ms-2">Primary Author</span>
+                                    {% endif %}
+                                </div>
+                                
+                                <div class="col-lg-6 col-12 mb-3">
+                                    <label class="form-label">Name <span class="text-danger">*</span></label>
+                                    {% if loop.index0 == 0 %}
+                                        {{ author_form.form.name(class="form-control", placeholder="Surname, Name", readonly=True) }}
+                                        <small class="form-text text-muted">Primary author cannot be edited</small>
+                                    {% else %}
+                                        {{ author_form.form.name(class="form-control", placeholder="Surname, Name") }}
+                                    {% endif %}
+                                </div>
 
-                    <div class="col-lg-6 col-12 mb-3">
-                        <label class="form-label">Affiliation</label>
-                        {{ author_form.form.affiliation(class="form-control", placeholder="Institution or Organization") }}
-                    </div>
+                                <div class="col-lg-6 col-12 mb-3">
+                                    <label class="form-label">Affiliation</label>
+                                    {{ author_form.form.affiliation(class="form-control", placeholder="Institution or Organization") }}
+                                </div>
 
-                    <div class="col-lg-6 col-12 mb-3">
-                        <label class="form-label">ORCID</label>
-                        {{ author_form.form.orcid(class="form-control", placeholder="0000-0000-0000-0000") }}
-                        <small class="form-text text-muted">Optional but recommended</small>
-                    </div>
-                    
-                    {% if loop.index0 > 0 %}
-                    <div class="col-12">
-                        <button type="button" class="btn btn-sm btn-danger remove-author-btn" onclick="removeAuthor({{ loop.index0 }})">
-                            <i data-feather="x"></i> Remove Author
-                        </button>
-                    </div>
-                    {% endif %}
-                </div>
+                                <div class="col-lg-6 col-12 mb-3">
+                                    <label class="form-label">ORCID</label>
+                                    {{ author_form.form.orcid(class="form-control", placeholder="0000-0000-0000-0000") }}
+                                    <small class="form-text text-muted">Optional but recommended</small>
+                                </div>
+                                
+                                {% if loop.index0 > 0 %}
+                                <div class="col-12">
+                                    <button type="button" class="btn btn-sm btn-danger remove-author-btn" onclick="removeAuthor({{ loop.index0 }})">
+                                        <i data-feather="x"></i> Remove Author
+                                    </button>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endif %}
+                    {% endfor %}
+                {% endif %}
             </div>
-            {% endif %}
-        {% endfor %}
-    {% endif %}
-</div>
 
+            <!-- Add Author Button -->
+            <div class="col-12 mt-3">
+                <button type="button" class="btn btn-outline-primary" onclick="addAuthor()">
+                    <i data-feather="plus"></i> Add Another Author
+                </button>
+            </div>
         </div>
 
         <!-- Right Column: File Upload -->
@@ -215,8 +271,13 @@
                 </label>
 
                 <div>
-                    {{ form.submit(class="btn btn-primary btn-lg", id="submit_btn") }}
-                    <a href="{{ url_for('movie.list_datasets') }}" class="btn btn-secondary btn-lg ms-2">
+                    <button type="submit" name="action" value="draft" class="btn btn-secondary btn-lg" id="draft_btn">
+                        <i data-feather="save"></i> Save as Draft
+                    </button>
+                    <button type="submit" name="action" value="publish" class="btn btn-primary btn-lg ms-2" id="publish_btn">
+                        <i data-feather="upload"></i> Upload and Publish
+                    </button>
+                    <a href="{{ url_for('movie.list_datasets') }}" class="btn btn-outline-secondary btn-lg ms-2">
                         Cancel
                     </a>
                 </div>
@@ -248,10 +309,10 @@
                         
                         // Validar tamaño (10MB máximo)
                         if (file.size > 10 * 1024 * 1024) {
-                            fileInfo.innerHTML = `<span class="text-danger">${file.name} — ${formatBytes(file.size)} (exceeds 10MB limit)</span>`;
+                            fileInfo.innerHTML = `<span class="text-danger">${file.name} – ${formatBytes(file.size)} (exceeds 10MB limit)</span>`;
                             hasErrors = true;
                         } else {
-                            fileInfo.innerHTML = `${index + 1}. ${file.name} — ${formatBytes(file.size)}`;
+                            fileInfo.innerHTML = `${index + 1}. ${file.name} – ${formatBytes(file.size)}`;
                         }
                         
                         fileList.appendChild(fileInfo);
@@ -269,7 +330,36 @@
                 }
             });
         }
+
+        // Check for success message in URL
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('success') === 'true') {
+            const action = urlParams.get('action') || 'uploaded';
+            const datasetId = urlParams.get('dataset_id');
+            
+            let message = action === 'publish' 
+                ? 'Dataset uploaded and published successfully!' 
+                : 'Dataset saved as draft successfully!';
+            
+            showSuccessToast(message);
+            
+            // Redirect after 5 seconds
+            setTimeout(() => {
+                    window.location.href = `/moviedataset/${datasetId}`;
+               
+            }, 5000);
+        }
     });
+
+    function showSuccessToast(message) {
+        const toast = document.getElementById('successToast');
+        const toastMessage = document.getElementById('toastMessage');
+        
+        toastMessage.textContent = message;
+        toast.classList.add('show');
+        
+        feather.replace();
+    }
 
     function formatBytes(bytes, decimals = 2) {
         if (bytes === 0) return '0 Bytes';
