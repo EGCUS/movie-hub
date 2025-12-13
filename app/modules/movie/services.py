@@ -15,6 +15,7 @@ from core.services.BaseService import BaseService
 from app.modules.movie.repositories import MovieRepository
 from app.modules.dataset.repositories import DSDownloadRecordRepository, DSViewRecordRepository
 from app.modules.fakenodo.adapter import FakenodoAdapter
+from app.modules.fakenodo.models import Fakenodo
 
 
 class SnapshotDataset:
@@ -59,188 +60,219 @@ class MovieService(BaseService):
         return MovieDataset.query.join(DSMetaData).filter(
             DSMetaData.dataset_doi.isnot(None)
         ).order_by(MovieDataset.created_at.desc()).all()
-
+        
+    
+    def get_published_datasets(self, limit=None):
+        """Obtiene solo los datasets publicados en Fakenodo"""
+        from app.modules.fakenodo.models import Fakenodo
+        
+        return MovieDataset.query.join(Fakenodo).filter(
+            Fakenodo.status == "published"
+        ).order_by(MovieDataset.created_at.desc())
+            
+        
+    #MUESTRO LO PUBLICADO EN FAKENODO
     def get_moviedataset_by_user(self, user_id):
-        from app.modules.dataset.models import DSMetaData
-
-        return MovieDataset.query.join(DSMetaData).filter(
+        """Obtiene datasets publicados en Fakenodo del usuario"""
+        from app.modules.fakenodo.models import Fakenodo
+        
+        # Datasets que tienen un Fakenodo con status "published"
+        return MovieDataset.query.join(Fakenodo).filter(
             MovieDataset.user_id == user_id,
-            DSMetaData.dataset_doi.isnot(None)
+            Fakenodo.status == "published"
         ).order_by(MovieDataset.created_at.desc()).all()
-
+        
+        
     def get_unsynchronized_datasets_by_user(self, user_id):
-        from app.modules.dataset.models import DSMetaData
-
-        return MovieDataset.query.join(DSMetaData).filter(
+        """Obtiene datasets NO publicados (drafts) del usuario"""
+        
+        # Datasets que tienen un Fakenodo pero NO está published
+        return MovieDataset.query.join(Fakenodo).filter(
             MovieDataset.user_id == user_id,
-            DSMetaData.dataset_doi.is_(None)
+            Fakenodo.status != "published"
         ).order_by(MovieDataset.created_at.desc()).all()
-
+        
+        
     def get_movie(self, movie_id):
         movie = Movie.query.get(movie_id)
         if not movie:
             abort(404, "Movie not found")
         return movie
-
+    
+    
+    
     def upload_and_publish_dataset(self, form, current_user, dsmetadata_service):
         """
-        Crea y sube un dataset completo con todos sus archivos y películas.
+        Crea y sube un dataset completo con todos sus archivos y películas,
+        y luego lo publica en Fakenodo.
         Retorna el dataset creado y el total de películas procesadas.
         """
-        metadata = DSMetaData(
-            title=form.title.data,
-            description=form.desc.data,
-            publication_type=form.convert_publication_type(form.publication_type.data),
-            publication_doi=form.publication_doi.data or None,
-            tags=form.tags.data or None
-        )
-        db.session.add(metadata)
-        db.session.flush()
+        movie_dataset, total_movies, fakenodo_id = self.upload_draft_dataset(form, current_user, dsmetadata_service)
 
-        for author_data in form.get_authors():
-            if author_data['name']:
-                author = Author(
-                    name=author_data['name'],
-                    affiliation=author_data.get('affiliation'),
-                    orcid=author_data.get('orcid'),
-                    ds_meta_data_id=metadata.id
-                )
-                db.session.add(author)
-
-        movie_dataset = MovieDataset(
-            user_id=current_user.id,
-            ds_meta_data_id=metadata.id
-        )
-        db.session.add(movie_dataset)
-        db.session.flush()
-
-        if not movie_dataset.id:
-            raise Exception("Failed to create MovieDataset - ID is NULL")
-
-        db.session.commit()
-
-        # Fakenodo
-        fakenodo_response = self.fakenodo_adapter.create_fakenodo(movie_dataset)
-        fakenodo_id = fakenodo_response.get("id")
-        deposition_id = fakenodo_response.get("deposition_id")
-        dsmetadata_service.update(metadata.id, deposition_id=deposition_id)
-        db.session.commit()
-
-        # carpeta local
-        dataset_folder = f"uploads/user_{current_user.id}/dataset_{movie_dataset.id}"
-        os.makedirs(dataset_folder, exist_ok=True)
-
-        files = form.file.data
-        if not files or len(files) == 0:
-            raise ValueError("No files uploaded")
-
-        total_movies = 0
-        for file in files:
-            if not file or file.filename == '':
-                continue
-
-            file_content = file.read()
-
-            try:
-                movie_data = json.loads(file_content)
-                if isinstance(movie_data, list):
-                    movie_data = {"movies": movie_data}
-                elif isinstance(movie_data, dict) and 'movies' not in movie_data:
-                    raise ValueError("JSON object must contain a 'movies' key with an array")
-                elif not isinstance(movie_data, dict):
-                    raise ValueError("JSON must be an array or an object with 'movies' key")
-            except json.JSONDecodeError as e:
-                raise ValueError(f"Invalid JSON in {file.filename}: {str(e)}")
-
-            # Guardar localmente
-            local_file_path = os.path.join(dataset_folder, file.filename)
-            with open(local_file_path, 'wb') as f:
-                f.write(file_content)
-
-            # Subir a Fakenodo
-            self.fakenodo_adapter.upload_file_to_fakenodo(
-                fakenodo_id=fakenodo_id,
-                file_content=file_content,
-                filename=file.filename,
-                dataset_id=movie_dataset.id
-            )
-
-            fm_meta = FMMetaData(
-                filename=file.filename,
-                title=f"{metadata.title} - {file.filename}",
-                description="Movie dataset JSON",
-                publication_type=metadata.publication_type,
-                tags="movies,json",
-                version="1.0"
-            )
-            db.session.add(fm_meta)
-            db.session.flush()
-
-            feature_model = FeatureModel(
-                data_set_id=movie_dataset.id,
-                fm_meta_data_id=fm_meta.id
-            )
-            db.session.add(feature_model)
-            db.session.flush()
-
-            file_hash = hashlib.md5(file_content).hexdigest()
-            hubfile = Hubfile(
-                name=file.filename,
-                checksum=file_hash,
-                size=len(file_content),
-                feature_model_id=feature_model.id
-            )
-            db.session.add(hubfile)
-
-            for movie_dict in movie_data.get('movies', []):
-                logical_id = movie_dict.get("logical_id") or self._generate_logical_id(movie_dict)
-
-                existing_movie = Movie.query.filter_by(
-                    movie_dataset_id=movie_dataset.id,
-                    logical_id=logical_id
-                ).first()
-
-                if existing_movie:
-                    continue
-
-                movie = Movie(
-                    movie_dataset_id=movie_dataset.id,
-                    logical_id=logical_id,
-                    title=movie_dict.get('title'),
-                    original_title=movie_dict.get('original_title'),
-                    year=movie_dict.get('year'),
-                    duration=movie_dict.get('duration'),
-                    country=movie_dict.get('country'),
-                    director=movie_dict.get('director'),
-                    production_company=movie_dict.get('production_company'),
-                    genre=movie_dict.get('genre'),
-                    synopsis=movie_dict.get('synopsis'),
-                    imdb_rating=movie_dict.get('imdb_rating'),
-                    imdb_votes=movie_dict.get('imdb_votes'),
-                    poster_url=movie_dict.get('poster_url'),
-                    screenplay=movie_dict.get('screenplay'),
-                    cast=movie_dict.get('cast'),
-                    awards=movie_dict.get('awards')
-                )
-                db.session.add(movie)
-
-            total_movies += len(movie_data.get('movies', []))
-
-        movie_dataset.update_files_info()
-        db.session.commit()
-
-        self.create_version(movie_dataset)
-
-        dataset_doi = f"10.1234/{metadata.title.lower().replace(' ', '')}"
-        dsmetadata_service.update(metadata.id, dataset_doi=dataset_doi)
         self.fakenodo_adapter.publish_fakenodo(fakenodo_id)
 
         return movie_dataset, total_movies
-
-    def _generate_logical_id(self, movie_dict: dict) -> str:
-        base = f"{movie_dict.get('title')}|{movie_dict.get('year')}|{movie_dict.get('director')}"
-        return hashlib.sha1(base.encode("utf-8")).hexdigest()
-
+    
+    
+    def upload_draft_dataset(self, form, current_user, dsmetadata_service):
+    
+        try:
+            metadata = DSMetaData(
+                title=form.title.data,
+                description=form.desc.data,
+                publication_type=form.convert_publication_type(form.publication_type.data),
+                publication_doi=form.publication_doi.data or None,
+                tags=form.tags.data or None
+            )
+            db.session.add(metadata)
+            db.session.flush()
+            
+            for author_data in form.get_authors():
+                if author_data['name']:
+                    author = Author(
+                        name=author_data['name'],
+                        affiliation=author_data.get('affiliation'),
+                        orcid=author_data.get('orcid'),
+                        ds_meta_data_id=metadata.id
+                    )
+                    db.session.add(author)
+            
+            movie_dataset = MovieDataset(
+                user_id=current_user.id,
+                ds_meta_data_id=metadata.id
+            )
+            db.session.add(movie_dataset)
+            db.session.flush()
+            
+            if not movie_dataset.id:
+                raise Exception("Failed to create MovieDataset - ID is NULL")
+            
+            # Fakenodo
+            fakenodo_response = self.fakenodo_adapter.create_fakenodo(movie_dataset)
+            fakenodo_id = fakenodo_response.get("id")
+            deposition_id = fakenodo_response.get("deposition_id")
+            dsmetadata_service.update(metadata.id, deposition_id=deposition_id)
+            
+            # carpeta local
+            dataset_folder = f"uploads/user_{current_user.id}/dataset_{movie_dataset.id}"
+            os.makedirs(dataset_folder, exist_ok=True)
+            
+            # Procesar archivos
+            files = form.file.data
+            if not files or len(files) == 0:
+                raise ValueError("No files uploaded")
+            
+            total_movies = 0
+            for file in files:
+                if not file or file.filename == '':
+                    continue
+                
+                file_content = file.read()
+                
+                # Validar JSON
+                try:
+                    movie_data = json.loads(file_content)
+                    if isinstance(movie_data, list):
+                        movie_data = {"movies": movie_data}
+                    elif isinstance(movie_data, dict) and 'movies' not in movie_data:
+                        raise ValueError("JSON object must contain a 'movies' key with an array")
+                    elif not isinstance(movie_data, dict):
+                        raise ValueError("JSON must be an array or an object with 'movies' key")
+                except json.JSONDecodeError as e:
+                    raise ValueError(f"Invalid JSON in {file.filename}: {str(e)}")
+                
+                # Guardar localmente
+                local_file_path = os.path.join(dataset_folder, file.filename)
+                with open(local_file_path, 'wb') as f:
+                    f.write(file_content)
+                
+                # Subir a Fakenodo
+                self.fakenodo_adapter.upload_file_to_fakenodo(
+                    fakenodo_id=fakenodo_id,
+                    file_content=file_content,
+                    filename=file.filename,
+                    dataset_id=movie_dataset.id
+                )
+                
+                fm_meta = FMMetaData(
+                    filename=file.filename,
+                    title=f"{metadata.title} - {file.filename}",
+                    description="Movie dataset JSON",
+                    publication_type=metadata.publication_type,
+                    tags="movies,json",
+                    version="1.0"
+                )
+                db.session.add(fm_meta)
+                db.session.flush()
+                
+                feature_model = FeatureModel(
+                    data_set_id=movie_dataset.id,
+                    fm_meta_data_id=fm_meta.id
+                )
+                db.session.add(feature_model)
+                db.session.flush()
+                
+                file_hash = hashlib.md5(file_content).hexdigest()
+                hubfile = Hubfile(
+                    name=file.filename,
+                    checksum=file_hash,
+                    size=len(file_content),
+                    feature_model_id=feature_model.id
+                )
+                db.session.add(hubfile)
+                
+                for movie_dict in movie_data.get('movies', []):
+                    movie = Movie(
+                        movie_dataset_id=movie_dataset.id,
+                        title=movie_dict.get('title'),
+                        original_title=movie_dict.get('original_title'),
+                        year=movie_dict.get('year'),
+                        duration=movie_dict.get('duration'),
+                        country=movie_dict.get('country'),
+                        director=movie_dict.get('director'),
+                        production_company=movie_dict.get('production_company'),
+                        genre=movie_dict.get('genre'),
+                        synopsis=movie_dict.get('synopsis'),
+                        imdb_rating=movie_dict.get('imdb_rating'),
+                        imdb_votes=movie_dict.get('imdb_votes'),
+                        poster_url=movie_dict.get('poster_url'),
+                        screenplay=movie_dict.get('screenplay'),
+                        cast=movie_dict.get('cast'),
+                        awards=movie_dict.get('awards')
+                    )
+                    db.session.add(movie)
+                
+                movies_count = len(movie_data.get('movies', []))
+                total_movies += movies_count
+            
+            # Finalizar
+            movie_dataset.update_files_info()
+            
+            # Crear versión inicial
+            self.create_version(movie_dataset)
+            
+            dataset_doi = f"10.1234/{metadata.title.lower().replace(' ', '')}{metadata.id}"
+            dsmetadata_service.update(metadata.id, dataset_doi=dataset_doi)
+            
+            db.session.commit()
+            
+            return movie_dataset, total_movies, fakenodo_id
+            
+        except Exception as e:
+            db.session.rollback()
+        
+        try:
+            dataset_folder = f"uploads/user_{current_user.id}/dataset_{movie_dataset.id if 'movie_dataset' in locals() else 'unknown'}"
+            if os.path.exists(dataset_folder):
+                import shutil
+                shutil.rmtree(dataset_folder)
+        except:
+            pass
+        
+        raise e
+    
+    
+    #POR HACER
     def create_dataset(self, form, current_user):
         raise NotImplementedError("Dataset creation not yet implemented")
 
