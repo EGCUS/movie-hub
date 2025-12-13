@@ -191,8 +191,8 @@ def test_compare_version_ids_detects_changes(mock_load):
     from app.modules.movie.services import MovieService
 
     class FakeMovie:
-        def __init__(self, id, title):
-            self.id = id
+        def __init__(self, logical_id, title):
+            self.logical_id = logical_id
             self.title = title
 
     mock_v1 = MagicMock()
@@ -212,4 +212,5 @@ def test_compare_version_ids_detects_changes(mock_load):
     diff = svc.compare_version_ids(1, 2)
 
     assert "title" in diff["metadata_changed"]
-    assert diff["movies_added"][0]["title"] == "Movie Added"
+    assert diff["movies_added"][0]["logical_id"] == 2
+
