@@ -278,12 +278,54 @@ Se convocó una reunión virtual urgente de cara al entregable M2 debido a los p
 
 ### WI Asignado
 
+En el proyecto, me he encargado del **WI Limitar los intentos fallidos de inicio de sesión para evitar ataques de fuerza bruta**.
+
+Como resumen, he implementado un sistema de rate limiting en el módulo de autenticación que limita los intentos fallidos de login a un máximo de 3 por sesión. Después del tercer intento fallido, el usuario queda bloqueado por un tiempo que aumenta exponencialmente (30 segundos inicialmente, duplicándose en cada intento adicional). El contador de intentos se resetea automáticamente cuando el usuario logra autenticarse correctamente.
+
+La implementación se basa en el almacenamiento de estado en la sesión de Flask (`session["login_attempts"]` y `session["blocked_until"]`), lo que permite un control eficiente sin necesidad de persistencia en base de datos. El servicio `AuthenticationService` en `app/modules/auth/services.py` maneja toda la lógica, con constantes configurables como `MAX_ATTEMPTS = 3` y `BASE_BLOCK_TIME = 30`.
+
 ### Pruebas Realizadas
+
+En total: 2 pruebas unitarias específicas para el rate limiting de login, 1 prueba de interfaz para el flujo de login con rate limiting, 4 pruebas de interfaz para funcionalidades del módulo movie, y arreglos en pruebas unitarias del módulo movie.
+
+Resumen de las pruebas creadas y ejecutadas (basado en los archivos de prueba presentes):
+
+1) Pruebas unitarias (`app/modules/auth/tests/test_unit.py` líneas 96-128) — 2 pruebas
+    - `test_login_success_resets_attempts`: Verifica que un login exitoso resetea el contador de intentos fallidos.
+    - `test_login_block_after_max_attempts`: Verifica que después de 3 intentos fallidos, el usuario queda bloqueado y recibe un mensaje de "Too many requests".
+
+2) Pruebas Selenium (`app/modules/auth/tests/test_selenium.py` líneas 52-78) — 1 prueba
+    - `TestInvalidcredentials1attempt.test_invalid_credentials_shows_right_texts`: Simula intentos fallidos de login desde la interfaz web y verifica que se muestran los mensajes correctos ("Invalid credentials. X attempts remaining") y el bloqueo final ("Too many requests. Please wait 30 seconds").
+
+3) Pruebas Selenium (`app/modules/movie/tests/test_selenium.py` — todo el archivo) — 4 pruebas
+    - `test_explore_datasets_home`: Verifica que la página de exploración de datasets es accesible y contiene referencias a "Movie".
+    - `test_view_movie_collection`: Verifica que se puede ver la colección de películas de un dataset (carrusel).
+    - (Otras pruebas adicionales para navegación y funcionalidad del módulo movie).
+
+4) Arreglos en pruebas unitarias del módulo movie (`app/modules/movie/tests/test_unit.py`)
+    - Se arreglaron pruebas relacionadas con las rutas y servicios del módulo movie, incluyendo verificación de redirecciones, autenticación requerida, llamadas a servicios mockeados, y respuestas HTTP correctas para endpoints como `/moviedataset/list`, `/moviedataset/my-datasets`, y otras funcionalidades del módulo.
 
 ### Workflows Implementados
 
+Se implementaron y configuraron múltiples workflows de GitHub Actions para automatizar el proceso de CI/CD, testing, análisis de calidad y despliegue. Todos los workflows están ubicados en `.github/workflows/` y se activan en diferentes eventos (push, workflow_call, etc.).
+
+1) **codacy.yml** (creado): Workflow para análisis de cobertura de código con Codacy. Se activa en push a main o por llamada desde otros workflows. Configura una base de datos MySQL temporal, instala dependencias, ejecuta pruebas con pytest (excluyendo Selenium), genera reporte de cobertura XML y lo sube automáticamente a Codacy para análisis de calidad y métricas.
+
+2) **dockerhub_main.yml** (modificado): En colaboración con el compañero Manuel Zoilo Buzón Muñoz que lo creó originalmente. Workflow para construcción y publicación de imágenes Docker en Docker Hub para la rama main. Se activa en push a main o manualmente. Construye imágenes con tags latest y commit hash, las publica en moviehubuser/movie-hub, y limpia automáticamente imágenes antiguas para optimizar espacio.
+
+3) **dockerhub_develop.yml** (creado): Similar al anterior pero para rama develop. Se activa por workflow_call. Publica imágenes en moviehubuser/movie-hub-preview con credenciales de desarrollo, incluyendo limpieza de imágenes antiguas.
+
+4) **feature-branch.yml** (modificado): Workflow principal para ramas temporales. Valida mensajes de commit según convención (feat/fix/test/docs), y llama a otros workflows (codacy, tests, dockerhub) para ejecutar pruebas, análisis de calidad y publicación de imágenes en paralelo. Yo me encargué de añadir las llamadas a otros workflows, este fue creado originalmente por el compañero Alejandro Carmona Reina.
+
+5) **railway.yml** (creado): Workflow de despliegue a Railway para rama develop. Configura Python 3.12, instala dependencias, actualiza base de datos y ejecuta seeders, luego despliega automáticamente a Railway usando la CLI.
+
+6) **release.yml** (creado): Workflow de releases automáticos usando semantic-release. Se activa en push a main con commits de tipo "chore(release)". Genera versiones semánticas, changelog y releases en GitHub basándose en commits convencionales.
+
+7) **tests.yml** (creado): Workflow dedicado a ejecución de pruebas unitarias. Se activa en push a main o por workflow_call. Configura MySQL temporal, instala dependencias y ejecuta pytest en todos los módulos (excluyendo pruebas Selenium) con configuración de testing.
+
 ### Conclusión
 
+Durante mi participación en el proyecto movie-hub, he contribuido principalmente en tres áreas clave: seguridad de autenticación, refactorizaciones y automatización de CI/CD. El work item de rate limiting de login implementado añade una capa esencial de protección contra ataques de fuerza bruta, mejorando la robustez del sistema sin comprometer la experiencia de usuario. Junto a mis compañeros Darío Román Jiménez y Alejandro Carmona Reina refactorizamos la clase **BaseDataset** que permitió la convivencia de distintos tipos de datasets en el sistema. Finalmente, los workflows de GitHub Actions automatizan procesos críticos como testing, análisis de calidad, construcción de imágenes Docker y despliegues, reduciendo errores manuales y acelerando el ciclo de desarrollo. Estas contribuciones han fortalecido la infraestructura técnica del proyecto, facilitando un desarrollo más seguro, eficiente y escalable.
 
 
 ## Manuel Lavado Corredera
