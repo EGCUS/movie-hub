@@ -118,22 +118,17 @@ class MovieService(BaseService):
     
     def upload_draft_dataset(self, form, current_user, dsmetadata_service):
         movie_dataset = None
+        dataset_folder = None
+        files_to_upload_to_fakenodo = []  # Guardar archivos para subir al final
         
         try:
-            # Crear metadata, autores y dataset
             movie_dataset = self._create_movie_dataset_with_metadata(form, current_user)
+            db.session.flush()  # Obtener ID sin commit
             
-            # Fakenodo
-            fakenodo_response = self.fakenodo_adapter.create_fakenodo(movie_dataset)
-            fakenodo_id = fakenodo_response.get("id")
-            deposition_id = fakenodo_response.get("deposition_id")
-            dsmetadata_service.update(movie_dataset.ds_meta_data.id, deposition_id=deposition_id)
-            
-            # carpeta local
+            #subir al local
             dataset_folder = f"uploads/user_{current_user.id}/dataset_{movie_dataset.id}"
             os.makedirs(dataset_folder, exist_ok=True)
             
-            # Procesar archivos
             files = form.file.data
             if not files or len(files) == 0:
                 raise ValueError("No files uploaded")
@@ -145,7 +140,6 @@ class MovieService(BaseService):
                 
                 file_content = file.read()
                 
-                # Validar JSON
                 try:
                     movie_data = json.loads(file_content)
                     if isinstance(movie_data, list):
@@ -162,50 +156,49 @@ class MovieService(BaseService):
                 with open(local_file_path, 'wb') as f:
                     f.write(file_content)
                 
-                # Subir a Fakenodo
-                self.fakenodo_adapter.upload_file_to_fakenodo(
-                    fakenodo_id=fakenodo_id,
-                    file_content=file_content,
-                    filename=file.filename,
-                    dataset_id=movie_dataset.id
-                )
-                
-                # Crear FeatureModel y Hubfile
+                files_to_upload_to_fakenodo.append({
+                    'filename': file.filename,
+                    'content': file_content
+                })
                 self._create_feature_model_and_hubfile(
                     file.filename, 
                     file_content, 
                     movie_dataset
                 )
-                
+                # Crear películas (SIN COMMIT)
                 movies_count = self._create_movies(movie_data, movie_dataset.id)
                 total_movies += movies_count
             
-            # Finalizar
             movie_dataset.update_files_info()
             
             self.create_version(movie_dataset)
             
             dataset_doi = f"10.1234/{movie_dataset.ds_meta_data.title.lower().replace(' ', '')}{movie_dataset.ds_meta_data.id}"
             dsmetadata_service.update(movie_dataset.ds_meta_data.id, dataset_doi=dataset_doi)
-            
             db.session.commit()
+        
+            fakenodo_response = self.fakenodo_adapter.create_fakenodo(movie_dataset)
+            fakenodo_id = fakenodo_response.get("id")
+            deposition_id = fakenodo_response.get("deposition_id")
+            
+            # Actualizar metadata con deposition_id
+            dsmetadata_service.update(movie_dataset.ds_meta_data.id, deposition_id=deposition_id)
+            
+            # Subir archivos a Fakenodo
+            for file_info in files_to_upload_to_fakenodo:
+                self.fakenodo_adapter.upload_file_to_fakenodo(
+                    fakenodo_id=fakenodo_id,
+                    file_content=file_info['content'],
+                    filename=file_info['filename'],
+                    dataset_id=movie_dataset.id
+                )
             
             return movie_dataset, total_movies, fakenodo_id
             
-        except Exception as e:
+        except Exception:
             db.session.rollback()
-            
-            # Limpiar carpeta si hay error
-            try:
-                dataset_folder = f"uploads/user_{current_user.id}/dataset_{movie_dataset.id if movie_dataset else 'unknown'}"
-                if os.path.exists(dataset_folder):
-                    import shutil
-                    shutil.rmtree(dataset_folder)
-            except:
-                pass
-            
             raise
-    
+        
     
     def _create_movie_dataset_with_metadata(self, form, current_user):
         """Crea metadata, autores y el MovieDataset"""
@@ -240,6 +233,7 @@ class MovieService(BaseService):
             raise Exception("Failed to create MovieDataset - ID is NULL")
         
         return movie_dataset
+
     
     
     def _create_movies(self, movie_data, dataset_id):
