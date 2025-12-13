@@ -190,21 +190,17 @@ def test_compare_versions_page_renders(mock_get_dataset, test_client):
 def test_compare_version_ids_detects_changes(mock_load):
     from app.modules.movie.services import MovieService
 
-    class FakeMeta:
-        def __init__(self, title):
-            self.title = title
-
     class FakeMovie:
-        def __init__(self, id, title):
-            self.id = id
+        def __init__(self, logical_id, title):
+            self.logical_id = logical_id
             self.title = title
 
     mock_v1 = MagicMock()
-    mock_v1.ds_meta_data = FakeMeta("Title A")
+    mock_v1.ds_meta_data = {"title": "Title A"}
     mock_v1.movies = [FakeMovie(1, "Movie A")]
 
     mock_v2 = MagicMock()
-    mock_v2.ds_meta_data = FakeMeta("Title B")
+    mock_v2.ds_meta_data = {"title": "Title B"}
     mock_v2.movies = [
         FakeMovie(1, "Movie A"),
         FakeMovie(2, "Movie Added")
@@ -215,8 +211,6 @@ def test_compare_version_ids_detects_changes(mock_load):
     svc = MovieService()
     diff = svc.compare_version_ids(1, 2)
 
-    # Assert cambios detectados
     assert "title" in diff["metadata_changed"]
+    assert diff["movies_added"][0]["logical_id"] == 2
 
-    # movies_added devuelve DICTS, no objetos
-    assert diff["movies_added"][0]["title"] == "Movie Added"

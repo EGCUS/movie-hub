@@ -256,14 +256,32 @@ def select_versions(dataset_id):
     """
     dataset = movie_service.get_moviedataset(dataset_id)
 
-    # Versions reales del dataset (tabla Version)
-    versions = sorted(dataset.versions, key=lambda v: v.created_at, reverse=True)
+    # Filtrar versiones con snapshot.json válido
+    from app.modules.dataset.base_dataset import Version
+    import os
+
+    versions = (
+        Version.query
+        .filter_by(dataset_id=dataset.id)
+        .filter(Version.snapshot_path.isnot(None))
+        .all()
+    )
+
+    # solo las que existen en disco
+    versions = [
+        v for v in versions
+        if os.path.exists(v.snapshot_path)
+    ]
+
+    versions.sort(key=lambda v: v.created_at, reverse=True)
+
 
     return render_template(
         "movie/select_versions.html",
         dataset=dataset,
         versions=versions
     )
+
 
 
 # JSON: COMPARE TWO VERSIONS
@@ -275,7 +293,7 @@ def compare_versions_json(v1_id, v2_id):
     dataset_v1 = movie_service.load_dataset_from_version(v1_id)
     dataset_v2 = movie_service.load_dataset_from_version(v2_id)
 
-    comparison = movie_service.compare_datasets(dataset_v1, dataset_v2)
+    comparison = movie_service.compare_version_ids(v1_id, v2_id)
 
     return jsonify({
         "version_1": v1_id,

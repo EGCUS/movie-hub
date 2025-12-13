@@ -1,13 +1,14 @@
 import hashlib
 import os
+import json
+import difflib
 from flask import abort
+
 from app import db
 from app.modules.dataset.models import Author, DSMetaData
 from app.modules.featuremodel.models import FMMetaData, FeatureModel
 from app.modules.hubfile.models import Hubfile
 from app.modules.movie.models import DatasetChangeLog, MovieDataset, Movie
-import json
-from types import SimpleNamespace
 from app.modules.dataset.base_dataset import Version
 from datetime import datetime
 from core.services.BaseService import BaseService
@@ -18,16 +19,20 @@ from app.modules.fakenodo.adapter import FakenodoAdapter
 
 class SnapshotDataset:
     """Dataset reconstruido desde snapshot sin usar SQLAlchemy."""
-    def __init__(self, id, movies, metadata):
+    def __init__(self, id, movies, metadata, files, version_id):
         self.id = id
         self.movies = movies
-        self.ds_meta_data = metadata
+        self.ds_meta_data = metadata or {}
+        self.files = files or []
+        self.version_id = version_id
+
 
 class SnapshotMovie:
-    """Pelí­cula reconstruida desde snapshot."""
+    """Película reconstruida desde snapshot."""
     def __init__(self, data):
         for k, v in data.items():
             setattr(self, k, v)
+
 
 class MovieService(BaseService):
     def __init__(self):
@@ -35,51 +40,48 @@ class MovieService(BaseService):
         self.dsdownloadrecord_repository = DSDownloadRecordRepository()
         self.dsviewrecord_repostory = DSViewRecordRepository()
         self.fakenodo_adapter = FakenodoAdapter()
-    
+
     def total_dataset_downloads(self) -> int:
         return self.dsdownloadrecord_repository.total_dataset_downloads()
 
     def total_dataset_views(self) -> int:
         return self.dsviewrecord_repostory.total_dataset_views()
-    
+
     def get_moviedataset(self, dataset_id):
         dataset = MovieDataset.query.get(dataset_id)
         if not dataset:
             abort(404, "Movie dataset not found")
         return dataset
-    
+
     def get_all_moviedatasets(self):
         from app.modules.dataset.models import DSMetaData
-        
+
         return MovieDataset.query.join(DSMetaData).filter(
             DSMetaData.dataset_doi.isnot(None)
         ).order_by(MovieDataset.created_at.desc()).all()
-    
-    #Se muestra lo publicado 
+
     def get_moviedataset_by_user(self, user_id):
         from app.modules.dataset.models import DSMetaData
-        
+
         return MovieDataset.query.join(DSMetaData).filter(
             MovieDataset.user_id == user_id,
             DSMetaData.dataset_doi.isnot(None)
         ).order_by(MovieDataset.created_at.desc()).all()
-    
-    #Ahora mismo no se usa, sirve para mostrar los no publicados
+
     def get_unsynchronized_datasets_by_user(self, user_id):
         from app.modules.dataset.models import DSMetaData
-        
+
         return MovieDataset.query.join(DSMetaData).filter(
             MovieDataset.user_id == user_id,
             DSMetaData.dataset_doi.is_(None)
         ).order_by(MovieDataset.created_at.desc()).all()
-    
+
     def get_movie(self, movie_id):
         movie = Movie.query.get(movie_id)
         if not movie:
             abort(404, "Movie not found")
         return movie
-    
-    
+
     def upload_and_publish_dataset(self, form, current_user, dsmetadata_service):
         """
         Crea y sube un dataset completo con todos sus archivos y películas.
@@ -94,7 +96,7 @@ class MovieService(BaseService):
         )
         db.session.add(metadata)
         db.session.flush()
-        
+
         for author_data in form.get_authors():
             if author_data['name']:
                 author = Author(
@@ -104,43 +106,41 @@ class MovieService(BaseService):
                     ds_meta_data_id=metadata.id
                 )
                 db.session.add(author)
-        
+
         movie_dataset = MovieDataset(
             user_id=current_user.id,
             ds_meta_data_id=metadata.id
         )
         db.session.add(movie_dataset)
         db.session.flush()
-        
+
         if not movie_dataset.id:
             raise Exception("Failed to create MovieDataset - ID is NULL")
-        
+
         db.session.commit()
-        
+
         # Fakenodo
         fakenodo_response = self.fakenodo_adapter.create_fakenodo(movie_dataset)
         fakenodo_id = fakenodo_response.get("id")
         deposition_id = fakenodo_response.get("deposition_id")
         dsmetadata_service.update(metadata.id, deposition_id=deposition_id)
         db.session.commit()
-        
+
         # carpeta local
         dataset_folder = f"uploads/user_{current_user.id}/dataset_{movie_dataset.id}"
         os.makedirs(dataset_folder, exist_ok=True)
-        
-        # Procesar archivos
+
         files = form.file.data
         if not files or len(files) == 0:
             raise ValueError("No files uploaded")
-        
+
         total_movies = 0
         for file in files:
             if not file or file.filename == '':
                 continue
-            
+
             file_content = file.read()
-            
-            # Validar JSON
+
             try:
                 movie_data = json.loads(file_content)
                 if isinstance(movie_data, list):
@@ -151,12 +151,12 @@ class MovieService(BaseService):
                     raise ValueError("JSON must be an array or an object with 'movies' key")
             except json.JSONDecodeError as e:
                 raise ValueError(f"Invalid JSON in {file.filename}: {str(e)}")
-            
+
             # Guardar localmente
             local_file_path = os.path.join(dataset_folder, file.filename)
             with open(local_file_path, 'wb') as f:
                 f.write(file_content)
-            
+
             # Subir a Fakenodo
             self.fakenodo_adapter.upload_file_to_fakenodo(
                 fakenodo_id=fakenodo_id,
@@ -164,7 +164,7 @@ class MovieService(BaseService):
                 filename=file.filename,
                 dataset_id=movie_dataset.id
             )
-            
+
             fm_meta = FMMetaData(
                 filename=file.filename,
                 title=f"{metadata.title} - {file.filename}",
@@ -175,14 +175,14 @@ class MovieService(BaseService):
             )
             db.session.add(fm_meta)
             db.session.flush()
-            
+
             feature_model = FeatureModel(
                 data_set_id=movie_dataset.id,
                 fm_meta_data_id=fm_meta.id
             )
             db.session.add(feature_model)
             db.session.flush()
-            
+
             file_hash = hashlib.md5(file_content).hexdigest()
             hubfile = Hubfile(
                 name=file.filename,
@@ -191,10 +191,21 @@ class MovieService(BaseService):
                 feature_model_id=feature_model.id
             )
             db.session.add(hubfile)
-            
+
             for movie_dict in movie_data.get('movies', []):
+                logical_id = movie_dict.get("logical_id") or self._generate_logical_id(movie_dict)
+
+                existing_movie = Movie.query.filter_by(
+                    movie_dataset_id=movie_dataset.id,
+                    logical_id=logical_id
+                ).first()
+
+                if existing_movie:
+                    continue
+
                 movie = Movie(
                     movie_dataset_id=movie_dataset.id,
+                    logical_id=logical_id,
                     title=movie_dict.get('title'),
                     original_title=movie_dict.get('original_title'),
                     year=movie_dict.get('year'),
@@ -212,43 +223,33 @@ class MovieService(BaseService):
                     awards=movie_dict.get('awards')
                 )
                 db.session.add(movie)
-            
-            movies_count = len(movie_data.get('movies', []))
-            total_movies += movies_count
-        
-        # Finalizar
+
+            total_movies += len(movie_data.get('movies', []))
+
         movie_dataset.update_files_info()
         db.session.commit()
-        
-        # Crear versión inicial
+
         self.create_version(movie_dataset)
-        
-        # Publicar
+
         dataset_doi = f"10.1234/{metadata.title.lower().replace(' ', '')}"
         dsmetadata_service.update(metadata.id, dataset_doi=dataset_doi)
         self.fakenodo_adapter.publish_fakenodo(fakenodo_id)
-        
+
         return movie_dataset, total_movies
-    
-    
-    #POR HACER
+
+    def _generate_logical_id(self, movie_dict: dict) -> str:
+        base = f"{movie_dict.get('title')}|{movie_dict.get('year')}|{movie_dict.get('director')}"
+        return hashlib.sha1(base.encode("utf-8")).hexdigest()
+
     def create_dataset(self, form, current_user):
-        """
-        TODO
-        añadir self.create_version(dataset) al final para poder crear las versiones
-        """
         raise NotImplementedError("Dataset creation not yet implemented")
-    
-    #Método delete??
 
-###################
-# VERSIONING METHODS
-###################
-
+    ###################
+    # VERSIONING METHODS
+    ###################
 
     def create_version(self, dataset: MovieDataset):
         """Crea una nueva versión del dataset guardando un snapshot JSON."""
-
         version_number = str(len(dataset.versions) + 1.0)
 
         version = Version(
@@ -256,7 +257,7 @@ class MovieService(BaseService):
             version_number=version_number,
             created_at=datetime.utcnow()
         )
-        
+
         dataset.current_version = version_number
 
         db.session.add(version)
@@ -266,7 +267,7 @@ class MovieService(BaseService):
         os.makedirs(version_folder, exist_ok=True)
 
         snapshot = {
-            "dataset_id": dataset.id,      
+            "dataset_id": dataset.id,
             "metadata": {
                 "title": dataset.ds_meta_data.title,
                 "description": dataset.ds_meta_data.description,
@@ -275,7 +276,17 @@ class MovieService(BaseService):
                 "dataset_doi": dataset.ds_meta_data.dataset_doi,
                 "tags": dataset.ds_meta_data.tags.split(",") if dataset.ds_meta_data.tags else []
             },
-            "movies": [m.to_dict() for m in dataset.movies]
+            "movies": [m.to_dict() for m in dataset.movies],
+            # ✅ files congelados por versión
+            "files": [
+                {
+                    "name": f.name,
+                    "checksum": f.checksum,
+                    "size": f.size
+                }
+                for fm in dataset.feature_models
+                for f in Hubfile.query.filter_by(feature_model_id=fm.id).all()
+            ]
         }
 
         snapshot_path = os.path.join(version_folder, "snapshot.json")
@@ -287,187 +298,138 @@ class MovieService(BaseService):
         db.session.commit()
         return version
 
-
     def load_dataset_from_version(self, version_id):
-        """Carga un dataset reconstruido desde el snapshot de una versión."""
-
         version = Version.query.get(version_id)
-        if not version or not version.snapshot_path:
-            raise ValueError("Snapshot not found for that version")
+
+        if not version:
+            raise ValueError(f"Version {version_id} does not exist")
+        if not version.snapshot_path:
+            raise ValueError(f"Version {version_id} has no snapshot")
+        if not os.path.exists(version.snapshot_path):
+            raise ValueError(f"Snapshot file missing for version {version_id}")
 
         with open(version.snapshot_path, "r", encoding="utf-8") as f:
             snap = json.load(f)
 
-        metadata = SimpleNamespace(
-            title=snap["metadata"].get("title"),
-            description=snap["metadata"].get("description"),
-            authors=snap["metadata"].get("authors", []),
-            publication_type=snap["metadata"].get("publication_type"),
-            publication_doi=snap["metadata"].get("publication_doi"),
-            dataset_doi=snap["metadata"].get("dataset_doi"),
-            tags=snap["metadata"].get("tags", [])
-        )
-
-        movies = [SnapshotMovie(m) for m in snap["movies"]]
-
         return SnapshotDataset(
-            id=snap["dataset_id"],   # <-- ya existe
-            movies=movies,
-            metadata=metadata
+            id=snap["dataset_id"],
+            movies=[SnapshotMovie(m) for m in snap.get("movies", [])],
+            metadata=snap.get("metadata", {}),
+            files=snap.get("files", []),
+            version_id=version.id
         )
-    
-    def compare_versions(self, v1_dataset, v2_dataset):
-        """
-        Compara dos datasets cargados desde snapshot.
-        Ambos argumentos son SnapshotDataset.
-        """
 
+    ###################
+    # MAIN COMPARE
+    ###################
+
+    def compare_versions(self, v1_dataset, v2_dataset):
         result = {
+            "files": {},
+            "metadata_changed": {},
             "movies_added": [],
             "movies_removed": [],
             "movies_modified": [],
-            "metadata_changed": {},
         }
 
-        # ============================
-        # COMPARAR METADATA
-        # ============================
-        meta1 = vars(v1_dataset.ds_meta_data)
-        meta2 = vars(v2_dataset.ds_meta_data)
+        # METADATA
+        m1 = v1_dataset.ds_meta_data or {}
+        m2 = v2_dataset.ds_meta_data or {}
 
-        for key in meta1.keys() | meta2.keys():
-            if meta1.get(key) != meta2.get(key):
-                result["metadata_changed"][key] = {
-                    "old": meta1.get(key),
-                    "new": meta2.get(key),
-                }
+        for key in m1.keys() | m2.keys():
+            if m1.get(key) != m2.get(key):
+                result["metadata_changed"][key] = {"old": m1.get(key), "new": m2.get(key)}
 
-        # ============================
-        # COMPARAR MOVIES
-        # ============================
+        # MOVIES (logical_id)
+        def norm(v):
+            if isinstance(v, list):
+                return sorted(v)
+            if isinstance(v, dict):
+                return dict(sorted(v.items()))
+            return v
 
-        # Convert to dict by ID
-        movies_v1 = {m.id: m for m in v1_dataset.movies}
-        movies_v2 = {m.id: m for m in v2_dataset.movies}
+        FIELDS = [
+            "title", "original_title", "year", "duration", "country",
+            "director", "production_company", "genre", "synopsis",
+            "imdb_rating", "imdb_votes", "poster_url",
+            "screenplay", "cast", "awards"
+        ]
 
-        # Añadidos
-        for movie_id, m in movies_v2.items():
-            if movie_id not in movies_v1:
-                result["movies_added"].append(vars(m))
+        v1 = {m.logical_id: m for m in v1_dataset.movies}
+        v2 = {m.logical_id: m for m in v2_dataset.movies}
 
-        # Eliminados
-        for movie_id, m in movies_v1.items():
-            if movie_id not in movies_v2:
-                result["movies_removed"].append(vars(m))
+        for lid in (v2.keys() - v1.keys()):
+            result["movies_added"].append({"logical_id": lid})
 
-        # Modificados
-        for movie_id in movies_v1.keys() & movies_v2.keys():
-            m1 = vars(movies_v1[movie_id])
-            m2 = vars(movies_v2[movie_id])
+        for lid in (v1.keys() - v2.keys()):
+            result["movies_removed"].append({"logical_id": lid})
 
+        for lid in v1.keys() & v2.keys():
             diffs = {}
-            for key in m1.keys() | m2.keys():
-                if m1.get(key) != m2.get(key):
-                    diffs[key] = {"old": m1.get(key), "new": m2.get(key)}
-
+            for f in FIELDS:
+                if norm(getattr(v1[lid], f, None)) != norm(getattr(v2[lid], f, None)):
+                    diffs[f] = {
+                        "old": getattr(v1[lid], f, None),
+                        "new": getattr(v2[lid], f, None),
+                    }
             if diffs:
-                result["movies_modified"].append({
-                    "movie_id": movie_id,
-                    "changes": diffs
-                })
+                result["movies_modified"].append({"logical_id": lid, "changes": diffs})
+
+        # ✅ FILES (desde snapshot, NO BD)
+        result["files"] = self.compare_files_between_versions(v1_dataset, v2_dataset)
 
         return result
 
-
-    def compare_version_ids(self, version_id_1, version_id_2):
-        v1 = self.load_dataset_from_version(version_id_1)
-        v2 = self.load_dataset_from_version(version_id_2)
-
-        return self.compare_versions(v1, v2)
-    
-     ###################
-    # MINOR EDIT METHODS (No new DOI)
-
-    def edit_metadata(self, dataset: MovieDataset, new_title: str, new_description: str, new_tags: str, user_id: int, comment: str = None):
-        changes = {}
-        
-        # Detectar cambios
-        if dataset.ds_meta_data.title != new_title:
-            changes['title'] = {
-                'old': dataset.ds_meta_data.title,
-                'new': new_title
-            }
-            dataset.ds_meta_data.title = new_title
-        
-        if dataset.ds_meta_data.description != new_description:
-            changes['description'] = {
-                'old': dataset.ds_meta_data.description,
-                'new': new_description
-            }
-            dataset.ds_meta_data.description = new_description
-        
-        if dataset.ds_meta_data.tags != new_tags:
-            changes['tags'] = {
-                'old': dataset.ds_meta_data.tags,
-                'new': new_tags
-            }
-            dataset.ds_meta_data.tags = new_tags
-        
-        # Si hubo cambios, registrar en changelog
-        if changes:
-            changelog = DatasetChangeLog(
-                dataset_id=dataset.id,
-                user_id=user_id,
-                change_type='metadata',
-                changes=changes,
-                comment=comment
-            )
-            db.session.add(changelog)
-            db.session.commit()
-            
-        return changes
-
-    def edit_authors(self, dataset: MovieDataset, new_authors: list, user_id: int, comment: str = None):
-
-        # Guardar autores antiguos para el log
-        old_authors = [
-            {'name': a.name, 'affiliation': a.affiliation, 'orcid': a.orcid}
-            for a in dataset.ds_meta_data.authors
-        ]
-        
-        # Eliminar autores actuales
-        Author.query.filter_by(ds_meta_data_id=dataset.ds_meta_data.id).delete()
-        
-        # Crear nuevos autores
-        for author_data in new_authors:
-            if author_data.get('name'):
-                author = Author(
-                    name=author_data['name'],
-                    affiliation=author_data.get('affiliation'),
-                    orcid=author_data.get('orcid'),
-                    ds_meta_data_id=dataset.ds_meta_data.id
-                )
-                db.session.add(author)
-        
-        # Registrar en changelog
-        changelog = DatasetChangeLog(
-            dataset_id=dataset.id,
-            user_id=user_id,
-            change_type='authors',
-            changes={
-                'old_authors': old_authors,
-                'new_authors': new_authors
-            },
-            comment=comment
+    def compare_version_ids(self, v1_id, v2_id):
+        return self.compare_versions(
+            self.load_dataset_from_version(v1_id),
+            self.load_dataset_from_version(v2_id)
         )
-        db.session.add(changelog)
-        db.session.commit()
-        
-        return True
 
-    def get_change_history(self, dataset_id: int):
-        """Obtiene el historial de cambios menores de un dataset"""
-        return DatasetChangeLog.query.filter_by(
-            dataset_id=dataset_id
-        ).order_by(DatasetChangeLog.created_at.desc()).all()
-    
+    ###################
+    # FILE COMPARISON (snapshot-based)
+    ###################
+
+    def compare_files_between_versions(self, v1_dataset: SnapshotDataset, v2_dataset: SnapshotDataset):
+        files_v1 = {f["name"]: f for f in (v1_dataset.files or [])}
+        files_v2 = {f["name"]: f for f in (v2_dataset.files or [])}
+
+        added = []
+        removed = []
+        modified = []
+
+        for name, f in files_v2.items():
+            if name not in files_v1:
+                added.append(f)
+
+        for name, f in files_v1.items():
+            if name not in files_v2:
+                removed.append(f)
+
+        for name in files_v1.keys() & files_v2.keys():
+            if files_v1[name].get("checksum") != files_v2[name].get("checksum"):
+                modified.append({
+                    "name": name,
+                    "old": files_v1[name],
+                    "new": files_v2[name],
+                })
+
+        return {
+            "files_added": added,
+            "files_removed": removed,
+            "files_modified": modified,
+        }
+
+    ###################
+    # TEXT DIFF (READY)
+    ###################
+
+    def diff_text_files(self, path1, path2):
+        with open(path1, "r", encoding="utf-8") as f1, \
+             open(path2, "r", encoding="utf-8") as f2:
+            return list(difflib.unified_diff(
+                f1.readlines(),
+                f2.readlines(),
+                fromfile="version_1",
+                tofile="version_2"
+            ))
