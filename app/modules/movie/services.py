@@ -20,12 +20,13 @@ from app.modules.fakenodo.models import Fakenodo
 
 class SnapshotDataset:
     """Dataset reconstruido desde snapshot sin usar SQLAlchemy."""
-    def __init__(self, id, movies, metadata, files, version_id):
+    def __init__(self, id, movies, metadata, files, version_id, version_number):
         self.id = id
         self.movies = movies
         self.ds_meta_data = metadata or {}
         self.files = files or []
         self.version_id = version_id
+        self.version_number = version_number
 
 
 class SnapshotMovie:
@@ -348,7 +349,8 @@ class MovieService(BaseService):
             movies=[SnapshotMovie(m) for m in snap.get("movies", [])],
             metadata=snap.get("metadata", {}),
             files=snap.get("files", []),
-            version_id=version.id
+            version_id=version.id,
+            version_number=version.version_number
         )
 
     ###################
