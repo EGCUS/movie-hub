@@ -29,3 +29,34 @@ jobs:
           docker build -t $IMAGE:latest -t $IMAGE:$COMMIT -f docker/images/Dockerfile.prod .
           docker push $IMAGE:latest
           docker push $IMAGE:$COMMIT
+
+      - name: Cleanup old DockerHub images
+        env:
+          DOCKER_USER: ${{ secrets.DOCKER_USER }}
+          DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD_MAIN }}
+        run: |
+          set -e
+
+          IMAGE="moviehubuser/movie-hub"
+          KEEP=10
+
+          TOKEN=$(curl -s -X POST https://hub.docker.com/v2/users/login/ \
+            -H "Content-Type: application/json" \
+            -d "{\"username\": \"$DOCKER_USER\", \"password\": \"$DOCKER_PASSWORD\"}" \
+            | jq -r .token)
+
+          TAGS=$(curl -s -H "Authorization: JWT $TOKEN" \
+            "https://hub.docker.com/v2/repositories/$IMAGE/tags?page_size=100" \
+            | jq -r '.results[] | "\(.name) \(.last_updated)"' \
+            | grep -v latest \
+            | sort -rk2)
+
+          COUNT=0
+          echo "$TAGS" | while read TAG DATE; do
+            COUNT=$((COUNT+1))
+            if [ "$COUNT" -gt "$KEEP" ]; then
+              curl -s -X DELETE \
+                -H "Authorization: JWT $TOKEN" \
+                "https://hub.docker.com/v2/repositories/$IMAGE/tags/$TAG/"
+            fi
+          done
