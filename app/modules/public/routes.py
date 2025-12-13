@@ -17,6 +17,7 @@ def index():
     feature_model_service = FeatureModelService()
     download_service = DSDownloadRecordService()
 
+    published_datasets = movieDS_service.get_published_datasets().all()
     # Statistics: total datasets and feature models
     feature_models_counter = feature_model_service.count_feature_models()
 
@@ -34,8 +35,8 @@ def index():
 
     return render_template(
         "public/index.html",
-        datasets=movieDS_service.get_all_moviedatasets(),
-        datasets_counter=len(movieDS_service.get_all_moviedatasets()),
+        datasets=published_datasets,
+        datasets_counter=len(published_datasets),
         feature_models_counter=feature_models_counter,
         total_dataset_downloads=total_dataset_downloads,
         total_feature_model_downloads=total_feature_model_downloads,
