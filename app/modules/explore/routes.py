@@ -1,4 +1,4 @@
-from flask import jsonify, render_template, request
+from flask import jsonify, render_template, request, url_for
 
 from app.modules.explore import explore_bp
 from app.modules.explore.forms import ExploreForm
@@ -15,4 +15,9 @@ def index():
     if request.method == "POST":
         criteria = request.get_json()
         datasets = ExploreService().filter(**criteria)
-        return jsonify([dataset.to_dict() for dataset in datasets])
+        return jsonify([ {
+        **dataset.to_dict(),
+        "url": url_for("movie.view_dataset", dataset_id=dataset.id)
+    }
+    for dataset in datasets
+])
