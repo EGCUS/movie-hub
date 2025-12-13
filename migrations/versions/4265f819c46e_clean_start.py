@@ -1,8 +1,8 @@
-"""Clean initial migration
+"""Clean_start
 
-Revision ID: 4109394c1fde
+Revision ID: 4265f819c46e
 Revises: 
-Create Date: 2025-11-11 12:54:44.818681
+Create Date: 2025-12-13 18:30:13.916744
 
 """
 from alembic import op
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision = '4109394c1fde'
+revision = '4265f819c46e'
 down_revision = None
 branch_labels = None
 depends_on = None
@@ -109,6 +109,18 @@ def upgrade():
     sa.ForeignKeyConstraint(['user_id'], ['user.id'], ),
     sa.PrimaryKeyConstraint('id')
     )
+    op.create_table('dataset_change_log',
+    sa.Column('id', sa.Integer(), nullable=False),
+    sa.Column('dataset_id', sa.Integer(), nullable=False),
+    sa.Column('user_id', sa.Integer(), nullable=False),
+    sa.Column('change_type', sa.String(length=50), nullable=False),
+    sa.Column('changes', sa.JSON(), nullable=False),
+    sa.Column('comment', sa.Text(), nullable=True),
+    sa.Column('created_at', sa.DateTime(), nullable=False),
+    sa.ForeignKeyConstraint(['dataset_id'], ['base_dataset.id'], ),
+    sa.ForeignKeyConstraint(['user_id'], ['user.id'], ),
+    sa.PrimaryKeyConstraint('id')
+    )
     op.create_table('ds_download_record',
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('user_id', sa.Integer(), nullable=True),
@@ -133,6 +145,8 @@ def upgrade():
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('status', sa.String(length=50), nullable=True),
     sa.Column('dataset_id', sa.Integer(), nullable=False),
+    sa.Column('dataset_file_path', sa.String(length=500), nullable=True),
+    sa.Column('doi', sa.String(length=120), nullable=True),
     sa.ForeignKeyConstraint(['dataset_id'], ['base_dataset.id'], ),
     sa.PrimaryKeyConstraint('id')
     )
@@ -154,6 +168,7 @@ def upgrade():
     sa.Column('dataset_id', sa.Integer(), nullable=False),
     sa.Column('version_number', sa.String(length=20), nullable=False),
     sa.Column('created_at', sa.DateTime(), nullable=True),
+    sa.Column('snapshot_path', sa.String(length=255), nullable=True),
     sa.ForeignKeyConstraint(['dataset_id'], ['base_dataset.id'], ),
     sa.PrimaryKeyConstraint('id')
     )
@@ -169,6 +184,7 @@ def upgrade():
     op.create_table('movie',
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('movie_dataset_id', sa.Integer(), nullable=False),
+    sa.Column('logical_id', sa.String(length=128), nullable=False),
     sa.Column('title', sa.String(length=255), nullable=False),
     sa.Column('original_title', sa.String(length=255), nullable=True),
     sa.Column('year', sa.Integer(), nullable=False),
@@ -186,7 +202,8 @@ def upgrade():
     sa.Column('cast', sa.JSON(), nullable=True),
     sa.Column('awards', sa.JSON(), nullable=True),
     sa.ForeignKeyConstraint(['movie_dataset_id'], ['movie_dataset.id'], ),
-    sa.PrimaryKeyConstraint('id')
+    sa.PrimaryKeyConstraint('id'),
+    sa.UniqueConstraint('movie_dataset_id', 'logical_id', name='uq_movie_dataset_logical_id')
     )
     op.create_table('file_download_record',
     sa.Column('id', sa.Integer(), nullable=False),
@@ -223,6 +240,7 @@ def downgrade():
     op.drop_table('fakenodo')
     op.drop_table('ds_view_record')
     op.drop_table('ds_download_record')
+    op.drop_table('dataset_change_log')
     op.drop_table('base_dataset')
     op.drop_table('author')
     op.drop_table('user_profile')
