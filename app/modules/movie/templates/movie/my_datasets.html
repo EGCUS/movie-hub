@@ -6,7 +6,7 @@
 
 <div class="row mb-3">
     <div class="col-6">
-        <h1 class="h3 mb-0">📁 My Movie Datasets</h1>
+        <h1 class="h3 mb-0">🎬 My Movie Datasets</h1>
         <p class="text-muted">Manage your movie collections</p>
     </div>
     <div class="col-6 text-end">
@@ -45,17 +45,21 @@
                         <a href="{{ url_for('movie.view_dataset', dataset_id=dataset.id) }}">
                             🎬 {{ dataset.ds_meta_data.title }}
                         </a>
+                        <span class="badge bg-success ms-2">Published</span>
                     </td>
                     <td>
                         <span class="badge bg-primary">{{ dataset.get_movies_count() }}</span>
                     </td>
                     <td>{{ dataset.created_at.strftime('%b %d, %Y') }}</td>
                     <td>
-                        <small>{{ dataset.ds_meta_data.dataset_doi }}</small>
+                        <small><a href="https://doi.org/{{ dataset.ds_meta_data.dataset_doi }}" target="_blank">{{ dataset.ds_meta_data.dataset_doi }}</a></small>
                     </td>
                     <td>
                         <a href="{{ url_for('movie.view_dataset', dataset_id=dataset.id) }}" class="btn btn-sm btn-outline-primary" title="View">
                             <i data-feather="eye"></i>
+                        </a>
+                        <a href="{{ url_for('movie.manage_dataset', dataset_id=dataset.id) }}" class="btn btn-sm btn-outline-secondary" title="Manage">
+                            <i data-feather="settings"></i>
                         </a>
                         <a href="{{ url_for('movie.download_dataset', dataset_id=dataset.id) }}" class="btn btn-sm btn-outline-secondary" title="Download">
                             <i data-feather="download"></i>
@@ -76,6 +80,9 @@
         <h5 class="card-title mb-0">📝 Draft Datasets (Not Published)</h5>
     </div>
     <div class="card-body">
+        <div class="alert alert-info" role="alert">
+            <strong>ℹ️ About Drafts:</strong> These datasets are saved but not publicly available. You can manage and publish them when ready.
+        </div>
         <table class="table table-hover">
             <thead>
                 <tr>
@@ -92,14 +99,15 @@
                         <a href="{{ url_for('movie.manage_dataset', dataset_id=dataset.id) }}">
                             🎬 {{ dataset.ds_meta_data.title }}
                         </a>
+                        <span class="badge bg-warning text-dark ms-2">Draft</span>
                     </td>
                     <td>
                         <span class="badge bg-secondary">{{ dataset.get_movies_count() }}</span>
                     </td>
                     <td>{{ dataset.created_at.strftime('%b %d, %Y') }}</td>
                     <td>
-                        <a href="{{ url_for('movie.manage_dataset', dataset_id=dataset.id) }}" class="btn btn-sm btn-outline-primary" title="Manage">
-                            <i data-feather="settings"></i>
+                        <a href="{{ url_for('movie.manage_dataset', dataset_id=dataset.id) }}" class="btn btn-sm btn-primary" title="Manage & Publish">
+                            <i data-feather="settings"></i> Manage
                         </a>
                         <a href="{{ url_for('movie.view_dataset', dataset_id=dataset.id) }}" class="btn btn-sm btn-outline-secondary" title="Preview">
                             <i data-feather="eye"></i>

@@ -59,16 +59,55 @@ def list_datasets():
         datasets=datasets
     )
 
-#GET MY DATASETS
 @movie_bp.route("/moviedataset/my-datasets", methods=["GET"])
 @login_required
 def my_datasets():
-    #Obtengo los datasets de usuario act
+    """Obtiene los datasets del usuario separados por estado de publicación"""
+    # Usar los métodos del servicio que ya existen
     synchronized_datasets = movie_service.get_moviedataset_by_user(current_user.id)
+    unsynchronized_datasets = movie_service.get_unsynchronized_datasets_by_user(current_user.id)
+    
     return render_template(
         "movie/my_datasets.html",
         synchronized_datasets=synchronized_datasets,
+        unsynchronized_datasets=unsynchronized_datasets
     )
+    
+    
+@movie_bp.route("/moviedataset/<int:dataset_id>/publish", methods=["POST"])
+@login_required
+def publish_dataset(dataset_id):
+    """Publica un dataset en Fakenodo"""
+    try:
+        dataset = movie_service.get_moviedataset(dataset_id)
+        
+        # Verificar permisos
+        if dataset.user_id != current_user.id:
+            return jsonify({"error": "You don't have permission to publish this dataset"}), 403
+        
+        # Buscar Fakenodo asociado
+        from app.modules.fakenodo.models import Fakenodo
+        fakenodo = Fakenodo.query.filter_by(dataset_id=dataset.id).first()
+        
+        if not fakenodo:
+            return jsonify({"error": "Fakenodo record not found for this dataset"}), 404
+        
+        # Publicar en Fakenodo - esto ya verifica todo y actualiza
+        published_fakenodo = fakenodo_adapter.publish_fakenodo(fakenodo.id)
+        
+        flash('Dataset published successfully in Fakenodo!', 'success')
+        return jsonify({
+            "message": "Dataset published successfully",
+            "doi": published_fakenodo.doi,
+            "status": published_fakenodo.status
+        }), 200
+        
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    except Exception as e:
+        logger.exception("Error publishing dataset")
+        return jsonify({"error": f"Error publishing dataset: {str(e)}"}), 500
+    
 
 
 @movie_bp.route("/moviedataset/<int:dataset_id>", methods=["GET"])
@@ -171,6 +210,7 @@ def download_dataset(dataset_id):
 
     return resp
 
+
 @movie_bp.route("/moviedataset/upload", methods=["GET", "POST"])
 @login_required
 def upload_dataset():
@@ -188,15 +228,37 @@ def upload_dataset():
         try:
             logger.info("=== Starting dataset upload ===")
             
-            movie_dataset, total_movies = movie_service.upload_and_publish_dataset( 
-                form=form,
-                current_user=current_user,
-                dsmetadata_service=dsmetadata_service
-            )
+            # Detectar qué botón se presionó
+            action = request.form.get('action')  # 'draft' o 'publish'
             
-            logger.info(f"Dataset {movie_dataset.id} uploaded successfully with {total_movies} movies")
-            flash(f'Dataset uploaded successfully! {total_movies} movies from {len(form.file.data)} files 🎬', 'success')
-            return redirect(url_for('movie.view_dataset', dataset_id=movie_dataset.id))
+            if action == 'publish':
+                # Publica
+                logger.info("Action: Upload and Publish")
+                movie_dataset, total_movies = movie_service.upload_and_publish_dataset(
+                    form=form,
+                    current_user=current_user,
+                    dsmetadata_service=dsmetadata_service
+                )
+                action_text = 'publish'
+            else:
+                #   Manda a draft
+                logger.info("Action: Save as Draft")
+                movie_dataset, total_movies, _ = movie_service.upload_draft_dataset(
+                    form=form,
+                    current_user=current_user,
+                    dsmetadata_service=dsmetadata_service
+                )
+                action_text = 'draft'
+            
+            logger.info(f"Dataset {movie_dataset.id} processed successfully with {total_movies} movies")
+            
+            
+            return redirect(url_for(
+                'movie.upload_dataset',
+                success='true',
+                action=action_text,
+                dataset_id=movie_dataset.id
+            ))
 
         except ValueError as e:
             logger.error(f"Validation error: {str(e)}")
@@ -207,37 +269,6 @@ def upload_dataset():
             flash(f'Error uploading dataset: {str(e)}', 'error')
 
     return render_template("movie/upload_dataset.html", form=form)
-
-
-@movie_bp.route("/moviedataset/file/upload", methods=["POST"])
-@login_required
-def upload_file():
-    """
-    Quick file validation endpoint (optional, for AJAX previews)
-    """
-    try:
-        file = request.files.get("file")
-        if not file:
-            return jsonify({"error": "No file provided"}), 400
-        
-        if not file.filename.endswith('.json'):
-            return jsonify({"error": "Only JSON files allowed"}), 400
-        
-        # Validar JSON
-        content = file.read()
-        try:
-            data = json.loads(content)
-            movie_count = len(data.get('movies', []))
-            return jsonify({
-                "success": True,
-                "filename": file.filename,
-                "movie_count": movie_count
-            }), 200
-        except:
-            return jsonify({"error": "Invalid JSON"}), 400
-            
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
 
 
 @movie_bp.route("/moviedataset/file/delete", methods=["POST"])

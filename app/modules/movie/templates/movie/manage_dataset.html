@@ -41,11 +41,34 @@
                 <div class="d-flex align-items-center justify-content-between">
                     <h1><b>🎬 {{ dataset.ds_meta_data.title }}</b></h1>
                     <div>
+                        {% if dataset.is_published() %}
+                            <span class="badge bg-success">✅ Published</span>
+                        {% else %}
+                            <span class="badge bg-warning text-dark">📝 Draft</span>
+                        {% endif %}
                         <span class="badge bg-secondary">{{ dataset.get_cleaned_publication_type() }}</span>
                         <span class="badge bg-primary">{{ dataset.get_movies_count() }} movies</span>
                     </div>
                 </div>
                 <p class="text-secondary">{{ dataset.created_at.strftime('%B %d, %Y at %I:%M %p') }}</p>
+
+                <!-- Publication Status Card -->
+                {% if not dataset.is_published() %}
+                <div class="alert alert-warning" role="alert">
+                    <h5 class="alert-heading">📝 Draft Dataset</h5>
+                    <p>This dataset is currently a draft and not publicly available. Click the button below to publish it to Fakenodo.</p>
+                    <hr>
+                    <button onclick="publishDataset({{ dataset.id }})" class="btn btn-success" id="publishBtn">
+                        <i data-feather="upload"></i> Publish to Fakenodo
+                    </button>
+                </div>
+                {% else %}
+                <div class="alert alert-success" role="alert">
+                    <h5 class="alert-heading">✅ Published Dataset</h5>
+                    <p class="mb-1">This dataset is published and publicly available.</p>
+                    <strong>DOI:</strong> <a href="https://doi.org/{{ dataset.get_fakenodo_doi() }}" target="_blank">{{ dataset.get_fakenodo_doi() }}</a>
+                </div>
+                {% endif %}
 
                 <div class="row mb-4">
                     <div class="col-md-4 col-12">
@@ -220,6 +243,38 @@
             console.log('Text copied to clipboard');
         }).catch(err => {
             console.error('Failed to copy text: ', err);
+        });
+    }
+
+    function publishDataset(datasetId) {
+        const btn = document.getElementById('publishBtn');
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Publishing...';
+        
+        fetch(`/moviedataset/${datasetId}/publish`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.error) {
+                alert('Error: ' + data.error);
+                btn.disabled = false;
+                btn.innerHTML = '<i data-feather="upload"></i> Publish to Fakenodo';
+                feather.replace();
+            } else {
+                // Recargar la página para mostrar el estado actualizado
+                window.location.reload();
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Error publishing dataset');
+            btn.disabled = false;
+            btn.innerHTML = '<i data-feather="upload"></i> Publish to Fakenodo';
+            feather.replace();
         });
     }
 </script>
