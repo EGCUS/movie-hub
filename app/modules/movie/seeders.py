@@ -13,6 +13,8 @@ from app.modules.fakenodo.models import Fakenodo
 from app.modules.featuremodel.models import FeatureModel, FMMetaData
 from app.modules.hubfile.models import Hubfile
 from core.seeders.BaseSeeder import BaseSeeder
+from app.modules.community.models import Community
+
 
 from app.modules.movie.services import MovieService
 movie_service = MovieService()
@@ -22,6 +24,9 @@ class MovieSeeder(BaseSeeder):
     priority = 3
 
     def run(self):
+
+        if MovieDataset.query.join(MovieDataset.ds_meta_data).filter(DSMetaData.dataset_doi.isnot(None)).count() > 0:
+            return
 
         # ==============================
         # PREPARACIÓN
@@ -37,6 +42,17 @@ class MovieSeeder(BaseSeeder):
         src_folder = os.path.join(
             working_dir, "app", "modules", "movie", "json_examples"
         )
+
+        ai = Community.query.filter_by(name="Grupo de Investigación en IA").first()
+        ds = Community.query.filter_by(name="Comunidad de Ciencia de Datos").first()
+
+        if not ai or not ds:
+            raise Exception(
+                "Communities not found. Seed CommunitySeeder before MovieSeeder."
+            )
+        # ==============================
+        #  DATASET 1 — SCI-FI
+        # ==============================
 
         def generate_logical_id(data: dict) -> str:
             base = f"{data.get('title')}|{data.get('year')}|{data.get('director')}"
@@ -67,7 +83,8 @@ class MovieSeeder(BaseSeeder):
             ds_meta_data_id=scifi_meta.id,
             user_id=user1.id,
             dataset_type="movie",
-            created_at=datetime.now(timezone.utc)
+            created_at=datetime.now(timezone.utc),
+            community_id=ai.id
         )
         db.session.add(scifi_dataset)
         db.session.flush()
@@ -123,9 +140,94 @@ class MovieSeeder(BaseSeeder):
         db.session.add(feature_model)
         db.session.flush()
 
+<<<<<<< HEAD
+        tarantino_dataset = MovieDataset(
+            ds_meta_data_id=tarantino_meta.id,
+            user_id=user2.id,
+            dataset_type="movie",
+            created_at=datetime.now(timezone.utc),
+            community_id=ds.id
+        )
+        db.session.add(tarantino_dataset)
+        db.session.flush()
+
+        with open(os.path.join(src_folder, "movies2.json"), 'r', encoding='utf-8') as f:
+            tarantino_movies_data = json.load(f)
+
+        tarantino_movies = [
+            Movie(movie_dataset_id=tarantino_dataset.id, **data)
+            for data in tarantino_movies_data
+        ]
+        db.session.add_all(tarantino_movies)
+        db.session.flush()
+
+
+        # ==============================
+        #  FILE MANAGEMENT (JSON files)
+        # ==============================
+
+        datasets_info = [
+            (scifi_dataset, "movies1.json"),
+            (tarantino_dataset, "movies2.json")
+        ]
+
+        hubfiles = []
+
+        for dataset, json_filename in datasets_info:
+
+            # Crear carpeta en uploads
+            dest_folder = os.path.join(
+                working_dir, "uploads",
+                f"user_{dataset.user_id}", f"dataset_{dataset.id}"
+            )
+            os.makedirs(dest_folder, exist_ok=True)
+
+            # Copiar archivo JSON
+            src_file = os.path.join(src_folder, json_filename)
+            dest_file = os.path.join(dest_folder, json_filename)
+            shutil.copy(src_file, dest_file)
+
+            # Hash del archivo
+            with open(dest_file, 'rb') as f:
+                file_hash = hashlib.md5(f.read()).hexdigest()
+
+            # FeatureModel metadata
+            fm_meta = FMMetaData(
+                filename=json_filename,
+                title=f"{dataset.ds_meta_data.title} - Data File",
+                description="Complete movie collection data in JSON format",
+                publication_type=PublicationType.OTHER,
+                tags="movie, json, collection",
+                version="1.0"
+            )
+            db.session.add(fm_meta)
+            db.session.flush()
+
+            # Author del feature model
+            fm_author = Author(
+                name=dataset.ds_meta_data.authors[0].name,
+                affiliation=dataset.ds_meta_data.authors[0].affiliation,
+                fm_meta_data_id=fm_meta.id
+            )
+            db.session.add(fm_author)
+            db.session.flush()
+
+            # FeatureModel entry
+            feature_model = FeatureModel(
+                data_set_id=dataset.id,
+                fm_meta_data_id=fm_meta.id
+            )
+            db.session.add(feature_model)
+            db.session.flush()
+
+            # Hubfile
+            hubfile = Hubfile(
+                name=json_filename,
+=======
         db.session.add(
             Hubfile(
                 name="movies1.json",
+>>>>>>> develop
                 checksum=file_hash,
                 size=os.path.getsize(dest_file),
                 feature_model_id=feature_model.id
