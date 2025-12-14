@@ -178,18 +178,11 @@ class MovieDatasetBehavior(TaskSet):
     @task(2)
     def publish_existing_draft(self):
         """POST /moviedataset/<id>/publish"""
-        # Solo intentar publicar si tengo drafts disponibles
         if not self.my_draft_datasets:
             return
-        
-        # Elegir un draft aleatorio de mis drafts
         dataset_id = random.choice(self.my_draft_datasets)
-        
-        # Verificar que sea un ID válido (número)
         if not str(dataset_id).isdigit():
             return
-        
-        # Es una API JSON, no necesita CSRF
         response = self.client.post(
             f"/moviedataset/{dataset_id}/publish",
             headers={"Content-Type": "application/json"},
@@ -201,8 +194,6 @@ class MovieDatasetBehavior(TaskSet):
             # Remover de la lista de drafts porque ya está publicado
             self.my_draft_datasets.remove(dataset_id)
         elif response.status_code == 400:
-            # Ya está publicado o error de validación
-            # Remover de la lista de drafts
             if dataset_id in self.my_draft_datasets:
                 self.my_draft_datasets.remove(dataset_id)
         else:
@@ -460,6 +451,71 @@ class MovieDatasetBehavior(TaskSet):
 
         if response.status_code != 200:
             print(f"Compare versions VIEW failed: {response.status_code}")
+            
+    
+    
+    @task(1)
+    def edit_dataset_metadata(self):
+        """Test de edición de metadata de un dataset"""
+        
+        dataset_id = 5
+        
+        with self.client.get(
+            f"/moviedataset/{dataset_id}/edit",
+            name="/moviedataset/[id]/edit",
+            catch_response=True
+        ) as response:  # ← AÑADE "as response:"
+            
+            if response.status_code != 200:
+                response.failure("GET failed")
+                return
+            
+            soup = BeautifulSoup(response.text, 'html.parser')
+            
+            # Obtener el primer autor (no se puede editar)
+            author0_name = soup.find('input', {'id': 'authors-0-name'})
+            if not author0_name:
+                response.failure("No se encontró el primer autor")
+                return
+            
+            first_author_name = author0_name.get('value', '')
+            
+            edit_data = {
+                "title": "Título Editado por Locust",
+                "desc": "Descripción editada",
+                "tags": "test,locust",
+                "edit_comment": "Test de Locust",
+                
+                "authors-0-name": first_author_name,
+                "authors-0-affiliation": "",
+                "authors-0-orcid": "",
+            }
+            
+            with self.client.post(
+                f"/moviedataset/{dataset_id}/edit",
+                data=edit_data,
+                name="/moviedataset/[id]/edit (POST)",
+                catch_response=True
+            ) as resp:
+                if resp.status_code == 500:
+                    print("ERROR 500")
+                    print(resp.text[:1000])
+                    resp.failure("Server error")
+                elif resp.status_code in [200, 302]:
+                    resp.success()
+                else:
+                    resp.failure(f"Status: {resp.status_code}")
+
+    @task(1)
+    def view_changelog(self):
+        """Test para ver el changelog de un dataset"""
+        
+        dataset_id = 5
+        
+        self.client.get(
+            f"/moviedataset/{dataset_id}/changelog",
+            name="/moviedataset/[id]/changelog"
+        )
 
 
 class MovieDatasetUser(HttpUser):
