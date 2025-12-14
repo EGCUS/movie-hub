@@ -108,8 +108,8 @@ function send_query() {
                                             <a href="${dataset.url}" class="btn btn-outline-primary btn-sm" style="border-radius: 5px;">
                                                 <i data-feather="eye"></i> View movie library
                                             </a>
-                                            <a href="/movie/dataset/download/${dataset.id}" class="btn btn-outline-secondary btn-sm" style="border-radius: 5px;">
-                                                <i data-feather="download"></i> Download (${dataset.total_size_in_human_format})
+                                            <a href="/moviedataset/${dataset.id}/download" class="btn btn-outline-secondary btn-sm" style="border-radius: 5px;">
+                                                <i data-feather="download"></i> Download (${dataset.get_file_total_size_for_human})
                                             </a>
                                         </div>
                                     </div>

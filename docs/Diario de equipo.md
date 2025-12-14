@@ -345,7 +345,7 @@ Durante mi participación en el proyecto movie-hub, he contribuido principalment
 
 Durante el período actual, me he encargado del **WI Trending datasets #100**.
 
-Como resumen, he conseguido que se muestre en la pantalla principal "home" datasets de películas en tendencia, es decir, los 3 datasets de películas que más se han descargado el último mes, incluyendo algunas propiedades como su título, su autor principal y el número de descargas que dicho dataset posee, además de dar la posibilidad de que el usuario vea sus detalles y/o descargue el dataset.
+Como resumen, he conseguido que se muestre en la pantalla principal "home" datasets de películas en tendencia, es decir, los 3 datasets de películas que más se han descargado el último mes, **sin tener en cuenta descargas de borradores**, incluyendo algunas propiedades como su título, su autor principal y el número de descargas que dicho dataset posee, además de dar la posibilidad de que el usuario vea sus detalles y/o descargue el dataset.
 
 Si no hubiese aún ningun dataset descargado el último mes, el banner se sigue mostrando con el siguiente texto informativo: *No datasets have been downloaded this month yet. Be the first to download a dataset!*
 
