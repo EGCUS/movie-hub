@@ -4,6 +4,7 @@ from flask_login import current_user, login_required
 from app import db
 from app.modules.auth.services import AuthenticationService
 from app.modules.dataset.models import DataSet
+from app.modules.movie.models import MovieDataset
 from app.modules.profile import profile_bp
 from app.modules.profile.forms import UserProfileForm
 from app.modules.profile.services import UserProfileService
@@ -36,15 +37,21 @@ def edit_profile():
 def my_profile():
     page = request.args.get("page", 1, type=int)
     per_page = 5
-
+    
+    
     user_datasets_pagination = (
-        db.session.query(DataSet)
-        .filter(DataSet.user_id == current_user.id)
-        .order_by(DataSet.created_at.desc())
+        db.session.query(MovieDataset)
+        .filter(MovieDataset.user_id == current_user.id)
+        .order_by(MovieDataset.created_at.desc())
         .paginate(page=page, per_page=per_page, error_out=False)
     )
 
-    total_datasets_count = db.session.query(DataSet).filter(DataSet.user_id == current_user.id).count()
+    total_datasets_count = (
+        db.session.query(MovieDataset)
+        .filter(MovieDataset.user_id == current_user.id)
+        .count()
+    )
+
 
     print(user_datasets_pagination.items)
 

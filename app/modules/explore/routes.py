@@ -1,4 +1,4 @@
-from flask import jsonify, render_template, request
+from flask import jsonify, render_template, request, url_for
 
 from app.modules.explore import explore_bp
 from app.modules.explore.forms import ExploreForm
@@ -17,7 +17,14 @@ def index():
     if request.method == "POST":
         criteria = request.get_json()
         datasets = ExploreService().filter(**criteria)
-        return jsonify([dataset.to_dict() for dataset in datasets])
+
+        return jsonify([ 
+            {
+                **dataset.to_dict(),
+                "url": url_for("movie.view_dataset", dataset_id=dataset.id)
+            }
+            for dataset in datasets
+        ])
 
 
 @explore_bp.route("/explore/communities", methods=["GET"])
@@ -25,10 +32,8 @@ def list_communities():
     communities = Community.query.order_by(Community.name).all()
 
     def build_logo_url(c: Community):
-        # Si en BD guardas solo el nombre del fichero
         if c.logo_url:
             return url_for("static", filename=f"img/community/{c.logo_url}")
-        # Default local
         return url_for("static", filename="img/community/default.svg")
 
     return jsonify([

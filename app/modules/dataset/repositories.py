@@ -6,6 +6,7 @@ from flask_login import current_user
 from sqlalchemy import desc, func
 
 from app.modules.dataset.models import Author, DataSet, DOIMapping, DSDownloadRecord, DSMetaData, DSViewRecord
+from app.modules.fakenodo.models import Fakenodo
 from core.repositories.BaseRepository import BaseRepository
 
 logger = logging.getLogger(__name__)
@@ -34,14 +35,17 @@ class DSDownloadRecordRepository(BaseRepository):
         
         # Fecha de hace un mes
         one_month_ago = datetime.utcnow() - timedelta(days=30)
-        
+        # Hacemos join con DataSet -> Fakenodo para asegurarnos de contar solo
+        # aquellos datasets que están publicados (Fakenodo.status == 'published').
+        # Usamos inner join: datasets sin registro en Fakenodo quedarán fuera.
         result = (
             self.model.query
             .with_entities(
                 self.model.dataset_id,
                 func.count(self.model.id).label('download_count')
             )
-            .filter(self.model.download_date >= one_month_ago)
+            .join(Fakenodo, Fakenodo.dataset_id == self.model.dataset_id)
+            .filter(self.model.download_date >= one_month_ago, Fakenodo.status == "published")
             .group_by(self.model.dataset_id)
             .order_by(func.count(self.model.id).desc())
             .limit(limit)

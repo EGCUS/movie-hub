@@ -131,7 +131,7 @@ class FakenodoService(BaseService):
 
         #Update Fakenodo
         fakenodo.dataset_file_path = fakenodo_folder
-        fakenodo.status = "dataset_uploaded"
+        fakenodo.status = "draft"
         self.update(
             fakenodo.id,
             dataset_file_path=fakenodo.dataset_file_path,

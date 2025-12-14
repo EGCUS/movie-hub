@@ -1,0 +1,64 @@
+name: Publish image in Docker Hub
+
+on:
+  workflow_call:
+    secrets:
+      DOCKER_USER:
+        required: true
+      DOCKER_PASSWORD_DEV:
+        required: true
+
+jobs:
+  push_to_registry:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Step 1: Check out the repository code
+      - uses: actions/checkout@v4
+
+      # Step 2: Log in to Docker Hub
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3.6.0
+        with:
+          username: ${{ secrets.DOCKER_USER }}
+          password: ${{ secrets.DOCKER_PASSWORD_DEV }}
+
+      # Step 3: Build and push Docker image and identifier of such image
+      - name: Build and push Docker image
+        run: |
+          COMMIT=$(echo $GITHUB_SHA | cut -c1-7)
+          IMAGE=moviehubuser/movie-hub-preview
+          docker build -t $IMAGE:latest -t $IMAGE:$COMMIT -f docker/images/Dockerfile.prod .
+          docker push $IMAGE:latest
+          docker push $IMAGE:$COMMIT
+
+      - name: Cleanup old DockerHub images
+        env:
+          DOCKER_USER: ${{ secrets.DOCKER_USER }}
+          DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD_DEV }}
+        run: |
+          set -e
+
+          IMAGE="moviehubuser/movie-hub-preview"
+          KEEP=10
+
+          TOKEN=$(curl -s -X POST https://hub.docker.com/v2/users/login/ \
+            -H "Content-Type: application/json" \
+            -d "{\"username\": \"$DOCKER_USER\", \"password\": \"$DOCKER_PASSWORD\"}" \
+            | jq -r .token)
+
+          TAGS=$(curl -s -H "Authorization: JWT $TOKEN" \
+            "https://hub.docker.com/v2/repositories/$IMAGE/tags?page_size=100" \
+            | jq -r '.results[] | "\(.name) \(.last_updated)"' \
+            | grep -v latest \
+            | sort -rk2)
+
+          COUNT=0
+          echo "$TAGS" | while read TAG DATE; do
+            COUNT=$((COUNT+1))
+            if [ "$COUNT" -gt "$KEEP" ]; then
+              curl -s -X DELETE \
+                -H "Authorization: JWT $TOKEN" \
+                "https://hub.docker.com/v2/repositories/$IMAGE/tags/$TAG/"
+            fi
+          done
