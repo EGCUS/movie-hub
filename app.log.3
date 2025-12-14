@@ -1,121 +1,109 @@
-2025-11-10 18:34:16,095 - app.modules.fakenodo.routes - ERROR - Error creating MovieDataset in Fakenodo.
+2025-12-14 17:17:19,187 - app - ERROR - Exception on / [GET]
 Traceback (most recent call last):
-  File "/home/dar-o-rom-n/Escritorio/proyecto/movie-hub/app/modules/fakenodo/services.py", line 27, in create_fakenodo
-    deposition = self.repository.create_new_movie(metadata=dataset_metadata,
-                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/dar-o-rom-n/Escritorio/proyecto/movie-hub/app/modules/fakenodo/repositories.py", line 10, in create_new_movie
-    return self.create(dataset=metadata, doi=doi)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/dar-o-rom-n/Escritorio/proyecto/movie-hub/core/repositories/BaseRepository.py", line 14, in create
-    instance: T = self.model(**kwargs)
-                  ^^^^^^^^^^^^^^^^^^^^
-  File "<string>", line 4, in __init__
-  File "/home/dar-o-rom-n/Escritorio/proyecto/movie-hub/venv/lib/python3.12/site-packages/sqlalchemy/orm/state.py", line 571, in _initialize_instance
-    with util.safe_reraise():
-  File "/home/dar-o-rom-n/Escritorio/proyecto/movie-hub/venv/lib/python3.12/site-packages/sqlalchemy/util/langhelpers.py", line 224, in __exit__
-    raise exc_value.with_traceback(exc_tb)
-  File "/home/dar-o-rom-n/Escritorio/proyecto/movie-hub/venv/lib/python3.12/site-packages/sqlalchemy/orm/state.py", line 569, in _initialize_instance
-    manager.original_init(*mixed[1:], **kwargs)
-  File "/home/dar-o-rom-n/Escritorio/proyecto/movie-hub/venv/lib/python3.12/site-packages/sqlalchemy/orm/decl_base.py", line 2182, in _declarative_constructor
-    setattr(self, k, kwargs[k])
-  File "/home/dar-o-rom-n/Escritorio/proyecto/movie-hub/venv/lib/python3.12/site-packages/sqlalchemy/orm/attributes.py", line 540, in __set__
-    self.impl.set(
-  File "/home/dar-o-rom-n/Escritorio/proyecto/movie-hub/venv/lib/python3.12/site-packages/sqlalchemy/orm/attributes.py", line 1477, in set
-    value = self.fire_replace_event(state, dict_, value, old, initiator)
-            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/dar-o-rom-n/Escritorio/proyecto/movie-hub/venv/lib/python3.12/site-packages/sqlalchemy/orm/attributes.py", line 1516, in fire_replace_event
-    value = fn(
-            ^^^
-  File "/home/dar-o-rom-n/Escritorio/proyecto/movie-hub/venv/lib/python3.12/site-packages/sqlalchemy/orm/attributes.py", line 2174, in emit_backref_from_scalar_set_event
-    child_impl = child_state.manager[key].impl
-                 ~~~~~~~~~~~~~~~~~~~^^^^^
-KeyError: 'fakenodo'
+  File "/home/vagrant/venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 1961, in _exec_single_context
+    self.dialect.do_execute(
+  File "/home/vagrant/venv/lib/python3.12/site-packages/sqlalchemy/engine/default.py", line 944, in do_execute
+    cursor.execute(statement, parameters)
+  File "/home/vagrant/venv/lib/python3.12/site-packages/pymysql/cursors.py", line 153, in execute
+    result = self._query(query)
+             ^^^^^^^^^^^^^^^^^^
+  File "/home/vagrant/venv/lib/python3.12/site-packages/pymysql/cursors.py", line 322, in _query
+    conn.query(q)
+  File "/home/vagrant/venv/lib/python3.12/site-packages/pymysql/connections.py", line 563, in query
+    self._affected_rows = self._read_query_result(unbuffered=unbuffered)
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/vagrant/venv/lib/python3.12/site-packages/pymysql/connections.py", line 825, in _read_query_result
+    result.read()
+  File "/home/vagrant/venv/lib/python3.12/site-packages/pymysql/connections.py", line 1199, in read
+    first_packet = self.connection._read_packet()
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/vagrant/venv/lib/python3.12/site-packages/pymysql/connections.py", line 775, in _read_packet
+    packet.raise_for_error()
+  File "/home/vagrant/venv/lib/python3.12/site-packages/pymysql/protocol.py", line 219, in raise_for_error
+    err.raise_mysql_exception(self._data)
+  File "/home/vagrant/venv/lib/python3.12/site-packages/pymysql/err.py", line 150, in raise_mysql_exception
+    raise errorclass(errno, errval)
+pymysql.err.OperationalError: (1054, "Unknown column 'base_dataset.community_id' in 'SELECT'")
 
-During handling of the above exception, another exception occurred:
+The above exception was the direct cause of the following exception:
 
 Traceback (most recent call last):
-  File "/home/dar-o-rom-n/Escritorio/proyecto/movie-hub/app/modules/fakenodo/routes.py", line 35, in create
-    fakenodo_response = service.create_fakenodo(movie_dataset)
-                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/dar-o-rom-n/Escritorio/proyecto/movie-hub/app/modules/fakenodo/services.py", line 36, in create_fakenodo
-    raise Exception(f"Failed to create deposition in Fakenodo with error: {str(error400)}")
-Exception: Failed to create deposition in Fakenodo with error: 'fakenodo'
-2025-11-10 18:34:55,877 - app.modules.fakenodo.routes - ERROR - Error creating MovieDataset in Fakenodo.
-Traceback (most recent call last):
-  File "/home/dar-o-rom-n/Escritorio/proyecto/movie-hub/app/modules/fakenodo/services.py", line 27, in create_fakenodo
-    deposition = self.repository.create_new_movie(metadata=dataset_metadata,
-                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-TypeError: FakenodoRepository.create_new_movie() got an unexpected keyword argument 'metadata'
-
-During handling of the above exception, another exception occurred:
-
-Traceback (most recent call last):
-  File "/home/dar-o-rom-n/Escritorio/proyecto/movie-hub/app/modules/fakenodo/routes.py", line 35, in create
-    fakenodo_response = service.create_fakenodo(movie_dataset)
-                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/dar-o-rom-n/Escritorio/proyecto/movie-hub/app/modules/fakenodo/services.py", line 36, in create_fakenodo
-    raise Exception(f"Failed to create deposition in Fakenodo with error: {str(error400)}")
-Exception: Failed to create deposition in Fakenodo with error: FakenodoRepository.create_new_movie() got an unexpected keyword argument 'metadata'
-2025-11-10 18:38:53,064 - app.modules.fakenodo.routes - ERROR - Error creating MovieDataset in Fakenodo.
-Traceback (most recent call last):
-  File "/home/dar-o-rom-n/Escritorio/proyecto/movie-hub/app/modules/fakenodo/services.py", line 27, in create_fakenodo
-    deposition = self.repository.create_new_movie(movie_metadata=dataset_metadata,
-                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/dar-o-rom-n/Escritorio/proyecto/movie-hub/app/modules/fakenodo/repositories.py", line 10, in create_new_movie
-    return self.create(movie_metadata=movie_metadata, doi=doi)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/dar-o-rom-n/Escritorio/proyecto/movie-hub/core/repositories/BaseRepository.py", line 14, in create
-    instance: T = self.model(**kwargs)
-                  ^^^^^^^^^^^^^^^^^^^^
-  File "<string>", line 4, in __init__
-  File "/home/dar-o-rom-n/Escritorio/proyecto/movie-hub/venv/lib/python3.12/site-packages/sqlalchemy/orm/state.py", line 571, in _initialize_instance
-    with util.safe_reraise():
-  File "/home/dar-o-rom-n/Escritorio/proyecto/movie-hub/venv/lib/python3.12/site-packages/sqlalchemy/util/langhelpers.py", line 224, in __exit__
-    raise exc_value.with_traceback(exc_tb)
-  File "/home/dar-o-rom-n/Escritorio/proyecto/movie-hub/venv/lib/python3.12/site-packages/sqlalchemy/orm/state.py", line 569, in _initialize_instance
-    manager.original_init(*mixed[1:], **kwargs)
-  File "/home/dar-o-rom-n/Escritorio/proyecto/movie-hub/venv/lib/python3.12/site-packages/sqlalchemy/orm/decl_base.py", line 2179, in _declarative_constructor
-    raise TypeError(
-TypeError: 'movie_metadata' is an invalid keyword argument for Fakenodo
-
-During handling of the above exception, another exception occurred:
-
-Traceback (most recent call last):
-  File "/home/dar-o-rom-n/Escritorio/proyecto/movie-hub/app/modules/fakenodo/routes.py", line 35, in create
-    fakenodo_response = service.create_fakenodo(movie_dataset)
-                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/dar-o-rom-n/Escritorio/proyecto/movie-hub/app/modules/fakenodo/services.py", line 37, in create_fakenodo
-    raise Exception(f"Failed to create deposition in Fakenodo with error: {str(error400)}")
-Exception: Failed to create deposition in Fakenodo with error: 'movie_metadata' is an invalid keyword argument for Fakenodo
-2025-11-11 01:05:11,278 - app.modules.fakenodo.routes - ERROR - Error creating MovieDataset in Fakenodo.
-Traceback (most recent call last):
-  File "/home/dar-o-rom-n/Escritorio/proyecto/movie-hub/app/modules/fakenodo/services.py", line 25, in create_fakenodo
-    deposition = self.repository.create_new_movie(metadata=dataset_metadata, doi=dataset_doi)
-                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-TypeError: FakenodoRepository.create_new_movie() got an unexpected keyword argument 'metadata'
-
-During handling of the above exception, another exception occurred:
-
-Traceback (most recent call last):
-  File "/home/dar-o-rom-n/Escritorio/proyecto/movie-hub/app/modules/fakenodo/routes.py", line 35, in create
-    fakenodo_response = service.create_fakenodo(movie_dataset)
-                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/dar-o-rom-n/Escritorio/proyecto/movie-hub/app/modules/fakenodo/services.py", line 29, in create_fakenodo
-    raise Exception(f"Failed to create deposition in Fakenodo with error: {str(error400)}")
-Exception: Failed to create deposition in Fakenodo with error: FakenodoRepository.create_new_movie() got an unexpected keyword argument 'metadata'
-2025-11-11 01:16:51,738 - app.modules.fakenodo.routes - ERROR - Error creating MovieDataset in Fakenodo.
-Traceback (most recent call last):
-  File "/home/dar-o-rom-n/Escritorio/proyecto/movie-hub/app/modules/fakenodo/services.py", line 25, in create_fakenodo
-    deposition = self.repository.create_new_movie(metadata=dataset_metadata, doi=dataset_doi)
-                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-TypeError: FakenodoRepository.create_new_movie() got an unexpected keyword argument 'metadata'
-
-During handling of the above exception, another exception occurred:
-
-Traceback (most recent call last):
-  File "/home/dar-o-rom-n/Escritorio/proyecto/movie-hub/app/modules/fakenodo/routes.py", line 35, in create
-    fakenodo_response = service.create_fakenodo(movie_dataset)
-                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/dar-o-rom-n/Escritorio/proyecto/movie-hub/app/modules/fakenodo/services.py", line 29, in create_fakenodo
-    raise Exception(f"Failed to create deposition in Fakenodo with error: {str(error400)}")
-Exception: Failed to create deposition in Fakenodo with error: FakenodoRepository.create_new_movie() got an unexpected keyword argument 'metadata'
+  File "/home/vagrant/venv/lib/python3.12/site-packages/flask/app.py", line 1511, in wsgi_app
+    response = self.full_dispatch_request()
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/vagrant/venv/lib/python3.12/site-packages/flask/app.py", line 919, in full_dispatch_request
+    rv = self.handle_user_exception(e)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/vagrant/venv/lib/python3.12/site-packages/flask_restful/__init__.py", line 298, in error_router
+    return original_handler(e)
+           ^^^^^^^^^^^^^^^^^^^
+  File "/home/vagrant/venv/lib/python3.12/site-packages/flask/app.py", line 917, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/vagrant/venv/lib/python3.12/site-packages/flask/app.py", line 902, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)  # type: ignore[no-any-return]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/vagrant/app/modules/public/routes.py", line 20, in index
+    published_datasets = movieDS_service.get_published_datasets().all()
+                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/vagrant/venv/lib/python3.12/site-packages/sqlalchemy/orm/query.py", line 2704, in all
+    return self._iter().all()  # type: ignore
+           ^^^^^^^^^^^^
+  File "/home/vagrant/venv/lib/python3.12/site-packages/sqlalchemy/orm/query.py", line 2857, in _iter
+    result: Union[ScalarResult[_T], Result[_T]] = self.session.execute(
+                                                  ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/vagrant/venv/lib/python3.12/site-packages/sqlalchemy/orm/session.py", line 2365, in execute
+    return self._execute_internal(
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/vagrant/venv/lib/python3.12/site-packages/sqlalchemy/orm/session.py", line 2251, in _execute_internal
+    result: Result[Any] = compile_state_cls.orm_execute_statement(
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/vagrant/venv/lib/python3.12/site-packages/sqlalchemy/orm/context.py", line 306, in orm_execute_statement
+    result = conn.execute(
+             ^^^^^^^^^^^^^
+  File "/home/vagrant/venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 1413, in execute
+    return meth(
+           ^^^^^
+  File "/home/vagrant/venv/lib/python3.12/site-packages/sqlalchemy/sql/elements.py", line 526, in _execute_on_connection
+    return connection._execute_clauseelement(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/vagrant/venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 1635, in _execute_clauseelement
+    ret = self._execute_context(
+          ^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/vagrant/venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 1840, in _execute_context
+    return self._exec_single_context(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/vagrant/venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 1980, in _exec_single_context
+    self._handle_dbapi_exception(
+  File "/home/vagrant/venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 2349, in _handle_dbapi_exception
+    raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
+  File "/home/vagrant/venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 1961, in _exec_single_context
+    self.dialect.do_execute(
+  File "/home/vagrant/venv/lib/python3.12/site-packages/sqlalchemy/engine/default.py", line 944, in do_execute
+    cursor.execute(statement, parameters)
+  File "/home/vagrant/venv/lib/python3.12/site-packages/pymysql/cursors.py", line 153, in execute
+    result = self._query(query)
+             ^^^^^^^^^^^^^^^^^^
+  File "/home/vagrant/venv/lib/python3.12/site-packages/pymysql/cursors.py", line 322, in _query
+    conn.query(q)
+  File "/home/vagrant/venv/lib/python3.12/site-packages/pymysql/connections.py", line 563, in query
+    self._affected_rows = self._read_query_result(unbuffered=unbuffered)
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/vagrant/venv/lib/python3.12/site-packages/pymysql/connections.py", line 825, in _read_query_result
+    result.read()
+  File "/home/vagrant/venv/lib/python3.12/site-packages/pymysql/connections.py", line 1199, in read
+    first_packet = self.connection._read_packet()
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/vagrant/venv/lib/python3.12/site-packages/pymysql/connections.py", line 775, in _read_packet
+    packet.raise_for_error()
+  File "/home/vagrant/venv/lib/python3.12/site-packages/pymysql/protocol.py", line 219, in raise_for_error
+    err.raise_mysql_exception(self._data)
+  File "/home/vagrant/venv/lib/python3.12/site-packages/pymysql/err.py", line 150, in raise_mysql_exception
+    raise errorclass(errno, errval)
+sqlalchemy.exc.OperationalError: (pymysql.err.OperationalError) (1054, "Unknown column 'base_dataset.community_id' in 'SELECT'")
+[SQL: SELECT movie_dataset.id AS movie_dataset_id, base_dataset.id AS base_dataset_id, base_dataset.user_id AS base_dataset_user_id, base_dataset.created_at AS base_dataset_created_at, base_dataset.current_version AS base_dataset_current_version, base_dataset.dataset_type AS base_dataset_dataset_type, base_dataset.total_size_bytes AS base_dataset_total_size_bytes, base_dataset.total_size_human AS base_dataset_total_size_human, base_dataset.ds_meta_data_id AS base_dataset_ds_meta_data_id, base_dataset.community_id AS base_dataset_community_id 
+FROM base_dataset INNER JOIN movie_dataset ON base_dataset.id = movie_dataset.id INNER JOIN fakenodo ON base_dataset.id = fakenodo.dataset_id 
+WHERE fakenodo.status = %(status_1)s ORDER BY base_dataset.created_at DESC]
+[parameters: {'status_1': 'published'}]
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+2025-12-14 17:17:19,200 - app - ERROR - Internal Server Error: 500 Internal Server Error: The server encountered an internal error and was unable to complete your request. Either the server is overloaded or there is an error in the application.
