@@ -70,6 +70,22 @@
         font-size: 0.75rem;
         padding: 0.35em 0.65em;
     }
+
+    .author-removed {
+        background: #f8d7da;
+        border-left: 4px solid #dc3545;
+        padding: 8px 12px;
+        margin: 5px 0;
+        border-radius: 4px;
+    }
+
+    .author-added {
+        background: #d4edda;
+        border-left: 4px solid #28a745;
+        padding: 8px 12px;
+        margin: 5px 0;
+        border-radius: 4px;
+    }
 </style>
 {% endblock %}
 
@@ -87,14 +103,6 @@
             </h2>
             <p class="text-muted">{{ dataset.ds_meta_data.title }}</p>
         </div>
-    </div>
-
-    <!-- Info Alert -->
-    <div class="alert alert-info">
-        <i data-feather="info"></i>
-        <strong>About this changelog:</strong> This shows minor edits to metadata that don't create new versions or DOIs. 
-        For major changes (new files, substantial content updates), see the 
-        <a href="{{ url_for('movie.select_versions', dataset_id=dataset.id) }}">Version History</a>.
     </div>
 
     <!-- Timeline -->
@@ -150,36 +158,57 @@
                         {% endfor %}
 
                     {% elif change.change_type == 'authors' %}
-                        <!-- Author changes -->
+                        <!-- Author changes - NUEVA LÓGICA -->
                         <div class="row">
+                            <!-- Autores eliminados (solo si hay) -->
+                            {% if change.changes.authors_removed and change.changes.authors_removed|length > 0 %}
                             <div class="col-md-6">
-                                <h6>Previous Authors:</h6>
-                                <ul class="list-unstyled">
-                                    {% for author in change.changes.old_authors %}
-                                    <li class="old-value">
-                                        <i data-feather="user-minus"></i>
-                                        {{ author.name }}
-                                        {% if author.affiliation %}
-                                            <small>({{ author.affiliation }})</small>
-                                        {% endif %}
-                                    </li>
-                                    {% endfor %}
-                                </ul>
+                                <h6 class="text-danger">
+                                    <i data-feather="user-minus"></i> Removed Authors:
+                                </h6>
+                                {% for author in change.changes.authors_removed %}
+                                <div class="author-removed">
+                                    <strong>{{ author.name }}</strong>
+                                    {% if author.affiliation %}
+                                        <br><small>({{ author.affiliation }})</small>
+                                    {% endif %}
+                                    {% if author.orcid %}
+                                        <br><small class="text-muted">ORCID: {{ author.orcid }}</small>
+                                    {% endif %}
+                                </div>
+                                {% endfor %}
                             </div>
+                            {% endif %}
+
+                            <!-- Autores añadidos (solo si hay) -->
+                            {% if change.changes.authors_added and change.changes.authors_added|length > 0 %}
                             <div class="col-md-6">
-                                <h6>New Authors:</h6>
-                                <ul class="list-unstyled">
-                                    {% for author in change.changes.new_authors %}
-                                    <li class="new-value">
-                                        <i data-feather="user-plus"></i>
-                                        {{ author.name }}
-                                        {% if author.affiliation %}
-                                            <small>({{ author.affiliation }})</small>
-                                        {% endif %}
-                                    </li>
-                                    {% endfor %}
-                                </ul>
+                                <h6 class="text-success">
+                                    <i data-feather="user-plus"></i> Added Authors:
+                                </h6>
+                                {% for author in change.changes.authors_added %}
+                                <div class="author-added">
+                                    <strong>{{ author.name }}</strong>
+                                    {% if author.affiliation %}
+                                        <br><small>({{ author.affiliation }})</small>
+                                    {% endif %}
+                                    {% if author.orcid %}
+                                        <br><small class="text-muted">ORCID: {{ author.orcid }}</small>
+                                    {% endif %}
+                                </div>
+                                {% endfor %}
                             </div>
+                            {% endif %}
+
+                            <!-- Mensaje si no hay cambios reales (no debería pasar) -->
+                            {% if (not change.changes.authors_removed or change.changes.authors_removed|length == 0) and (not change.changes.authors_added or change.changes.authors_added|length == 0) %}
+                            <div class="col-12">
+                                <p class="text-muted">
+                                    <i data-feather="info"></i>
+                                    No author changes detected (main author is protected)
+                                </p>
+                            </div>
+                            {% endif %}
                         </div>
 
                     {% elif change.change_type == 'tags' %}
