@@ -3,6 +3,7 @@ import io
 import json
 import os
 import tempfile
+from datetime import timezone, datetime
 from unittest.mock import mock_open, patch, MagicMock
 import pytest
 from flask import url_for
@@ -285,7 +286,6 @@ def test_my_datasets_shows_both_types(mock_get_published, mock_get_drafts, test_
 @patch("app.modules.movie.routes.fakenodo_adapter.publish_fakenodo")
 @patch("app.modules.movie.routes.movie_service.get_moviedataset")
 def test_publish_dataset_success(mock_get_dataset, mock_publish, mock_fakenodo_model, test_client):
-    """Test publicar un dataset draft exitosamente"""
     
     mock_dataset = MagicMock()
     mock_dataset.id = 5
@@ -318,7 +318,6 @@ def test_publish_dataset_success(mock_get_dataset, mock_publish, mock_fakenodo_m
 
 @patch("app.modules.movie.routes.movie_service.get_moviedataset")
 def test_publish_dataset_forbidden(mock_get_dataset, test_client):
-    """Test que no se puede publicar dataset de otro usuario"""
     
     mock_dataset = MagicMock()
     mock_dataset.id = 5
@@ -341,7 +340,6 @@ def test_publish_dataset_forbidden(mock_get_dataset, test_client):
 @patch("app.modules.fakenodo.models.Fakenodo")
 @patch("app.modules.movie.routes.movie_service.get_moviedataset")
 def test_publish_dataset_no_fakenodo(mock_get_dataset, mock_fakenodo_model, test_client):
-    """Test error cuando no existe registro de Fakenodo"""
     
     mock_dataset = MagicMock()
     mock_dataset.id = 5
@@ -369,7 +367,6 @@ def test_publish_dataset_no_fakenodo(mock_get_dataset, mock_fakenodo_model, test
 
 @patch("app.modules.movie.routes.movie_service.get_moviedataset")
 def test_manage_dataset_success(mock_get_dataset, test_client):
-    """Test acceder a gestión de dataset propio"""
     
     mock_dataset = MagicMock()
     mock_dataset.id = 10
@@ -389,9 +386,9 @@ def test_manage_dataset_success(mock_get_dataset, test_client):
     assert b"My Dataset" in response.data
 
 
+#Comprobar que solo el usuario propietario puede gestionar el dataset
 @patch("app.modules.movie.routes.movie_service.get_moviedataset")
 def test_manage_dataset_forbidden(mock_get_dataset, test_client):
-    """Test que no se puede gestionar dataset de otro usuario"""
     
     mock_dataset = MagicMock()
     mock_dataset.id = 10
@@ -563,6 +560,174 @@ def test_upload_dataset_get_form(test_client):
     
     assert response.status_code == 200
     assert b"Upload" in response.data or b"upload" in response.data
+    
+# ========================================
+# AO PARTIR DE AQUI TENEMOS LOS TESTS DE MINOR CHANGES WI 84
+# ========================================
 
+# ========================================
+# GET /moviedataset/<id>/changelog
+# ========================================
+
+@patch("app.modules.movie.routes.movie_service.get_moviedataset")
+@patch("app.modules.movie.routes.movie_service.get_change_history")
+def test_view_changelog(mock_get_history, mock_get_dataset, test_client):
+    """Test ver historial de cambios de un dataset"""
+    
+    mock_dataset = MagicMock()
+    mock_dataset.id = 1
+    mock_dataset.ds_meta_data.title = "Test Dataset"
+    mock_get_dataset.return_value = mock_dataset
+    
+    mock_change = MagicMock()
+    mock_change.change_type = "metadata"
+    mock_change.created_at = datetime.now(timezone.utc)
+    mock_get_history.return_value = [mock_change]
+    
+    response = test_client.get("/moviedataset/1/changelog")
+    
+    assert response.status_code == 200
+    assert b"Test Dataset" in response.data
+    mock_get_dataset.assert_called_once_with(1)
+    mock_get_history.assert_called_once_with(1)
+    
+# ========================================
+# GET /api/moviedataset/<id>/changelog
+# ========================================
+
+@patch("app.modules.movie.routes.movie_service.get_moviedataset")
+@patch("app.modules.movie.routes.movie_service.get_change_history")
+def test_api_changelog(mock_get_history, mock_get_dataset, test_client):
+    """Comprobación se obtiene JSON"""
+    
+    mock_dataset = MagicMock()
+    mock_dataset.id = 1
+    mock_dataset.ds_meta_data.title = "API Dataset"
+    mock_get_dataset.return_value = mock_dataset
+    
+    mock_change = MagicMock()
+    mock_change.to_dict.return_value = {
+        "change_type": "metadata",
+        "changes": {"title": {"old": "Old", "new": "New"}}
+    }
+    mock_get_history.return_value = [mock_change]
+    
+    response = test_client.get("/api/moviedataset/1/changelog")
+    
+    assert response.status_code == 200
+    data = json.loads(response.data)
+    assert data["dataset_id"] == 1
+    assert data["dataset_title"] == "API Dataset"
+    assert len(data["changes"]) == 1
+
+
+# ========================================
+# GET /moviedataset/<id>/edit
+# ========================================
+
+@patch("app.modules.movie.routes.movie_service.get_moviedataset")
+def test_edit_dataset_metadata_get(mock_get_dataset, test_client):
+    """Test mostrar formulario de edición de metadata"""
+    
+    mock_dataset = MagicMock()
+    mock_dataset.id = 5
+    mock_dataset.user_id = 1
+    mock_dataset.ds_meta_data.title = "Original Title"
+    mock_dataset.ds_meta_data.description = "Original Description"
+    mock_dataset.ds_meta_data.tags = "tag1, tag2"
+    
+    mock_author = MagicMock()
+    mock_author.name = "Doe, John"
+    mock_author.affiliation = "University"
+    mock_author.orcid = ""
+    mock_dataset.ds_meta_data.authors = [mock_author]
+    
+    mock_get_dataset.return_value = mock_dataset
+    
+    with patch("flask_login.utils._get_user") as mock_current_user:
+        mock_user = MagicMock()
+        mock_user.is_authenticated = True
+        mock_user.id = 1
+        mock_current_user.return_value = mock_user
+        
+        response = test_client.get("/moviedataset/5/edit")
+    
+    assert response.status_code == 200
+    assert b"Original Title" in response.data
+
+
+@patch("app.modules.movie.routes.movie_service.get_moviedataset")
+def test_edit_dataset_metadata_forbidden(mock_get_dataset, test_client):
+    """No puedo editar si no soy propietario del dataset"""
+    
+    mock_dataset = MagicMock()
+    mock_dataset.id = 5
+    mock_dataset.user_id = 999
+    mock_get_dataset.return_value = mock_dataset
+    
+    with patch("flask_login.utils._get_user") as mock_current_user:
+        mock_user = MagicMock()
+        mock_user.is_authenticated = True
+        mock_user.id = 1
+        mock_current_user.return_value = mock_user
+        
+        response = test_client.get("/moviedataset/5/edit")
+    
+    assert response.status_code == 403
+
+
+# ========================================
+# POST /moviedataset/<id>/edit
+# ========================================
+
+@patch("app.modules.movie.routes.movie_service.edit_authors")
+@patch("app.modules.movie.routes.movie_service.edit_metadata")
+@patch("app.modules.movie.routes.movie_service.get_moviedataset")
+def test_edit_dataset_metadata_post(mock_get_dataset, mock_edit_metadata, mock_edit_authors, test_client):
+    """Editar metadata de un dataset"""
+    
+    mock_dataset = MagicMock()
+    mock_dataset.id = 5
+    mock_dataset.user_id = 1
+    mock_dataset.ds_meta_data.title = "Old Title"
+    mock_dataset.ds_meta_data.description = "Old Desc"
+    mock_dataset.ds_meta_data.tags = "old"
+    
+    mock_author = MagicMock()
+    mock_author.name = "Doe, John"
+    mock_author.affiliation = "Uni"
+    mock_author.orcid = ""
+    mock_dataset.ds_meta_data.authors = [mock_author]
+    
+    mock_get_dataset.return_value = mock_dataset
+    mock_edit_metadata.return_value = {"title": {"old": "Old Title", "new": "New Title"}}
+    mock_edit_authors.return_value = True
+    
+    with patch("flask_login.utils._get_user") as mock_current_user:
+        mock_user = MagicMock()
+        mock_user.is_authenticated = True
+        mock_user.id = 1
+        mock_current_user.return_value = mock_user
+        
+        data = {
+            'title': 'New Title',
+            'desc': 'New Description',
+            'tags': 'new, tags',
+            'edit_comment': 'Updated metadata',
+            'authors-0-name': 'Doe, John',
+            'authors-0-affiliation': 'Uni',
+            'authors-0-orcid': ''
+        }
+        
+        response = test_client.post(
+            "/moviedataset/5/edit",
+            data=data,
+            follow_redirects=False
+        )
+    
+    assert response.status_code == 302
+    assert "/moviedataset/5" in response.location
+    mock_edit_metadata.assert_called_once()
+    mock_edit_authors.assert_called_once()
 
 
