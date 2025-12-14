@@ -220,12 +220,16 @@ WORKING_DIR=/app
 
 Para desplegar la versión de producción (rama `main`):
 ```bash
+# Traer los cambios de dockerhub
+docker compose -f docker/docker-compose.yml --profile main pull
 # Levantar los servicios con el perfil main
 docker compose -f docker/docker-compose.yml --profile main up -d
 ```
 
 Para desplegar la versión de preview (rama `develop`):
 ```bash
+# Traer los cambios de dockerhub
+docker compose -f docker/docker-compose.yml --profile develop pull
 # Levantar los servicios con el perfil develop
 docker compose -f docker-compose.yml --profile develop up -d
 ```
