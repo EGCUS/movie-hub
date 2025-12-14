@@ -32,7 +32,7 @@
 
 | **Nombre Completo**                | **UVUS** | **Email**                       |
 |------------------------------------|----------|---------------------------------|
-|Adame Mantecón, Manuel| manadaman  | manadaman@alum.us.es      |
+|Adame Mantecón, Manuel| GLL9619  | manadaman@alum.us.es      |
 | Buzón Muñoz, Manuel Zoilo          |manbuzmun| manbuzmun@alum.us.es          |
 | Carmona Reina, Alejandro           | CKR5791  | alecarrei1@alum.us.es        |
 | Granado Oliva, Samuel              | VWN3805 | samgraoli@alum.us.es       |
@@ -245,12 +245,38 @@ Se convocó una reunión virtual urgente de cara al entregable M2 debido a los p
 
 ### WI Asignado
 
+En el proyecto, me he encargado del **WI Validacion de registro mediante correo electrónico**.
+
+En resumen, he añadido una nueva pantalla tras el registro de un nuevo usuario en el sistema, en la que deberá añadir el código aleatorio de 6 dígitos que dicho usuario recibió en la dirección de correo electrónico especificada en el registro. Una vez introducido el código, se completará el registro y el usuario tendrá acceso al sistema.
+
+La función send_email en `app/modules/auth/services.py` se encarga de enviar el correo electrónico según la plantilla `email_validation_form.html` en `app/modules/auth/templates/auth` y con el código aleatorio generado gracias a la función `generate_verification_code` también en `app/modules/auth/services.py`. Para ello, también ha sido creada la dirección de correo `moviehubegc@gmail.com`, desde la cual se enviarán automáticamente los correos cuando sea necesario.
+
+En las primeras fases del desarrollo del WI, para probar el correcto funcionamiento del envío del correo, fue necesario probarlo registrando distintas direcciones de correo y observando su funcionamiento por consola para encontrar errores. Posteriormente, para poder gestionar los correos registrados y tener control sobre ello y los perfiles relacionados, fue conveniente crear una página para la gestión de usuarios. Para ello, se asignó el perfil con correo `user1@example.com` como administrador, y estando registrado con dicho perfil, se puede acceder a la página de gestión de usuarios a través de la barra lateral, página en la que también se pueden borrar y obtener datos de los distintos perfiles. Está página está creada en el módulo `app/modules/profile`.
+
 ### Pruebas Realizadas
+
+En total: 3 pruebas unitarias para el modulo de auth en base al WI, 3 pruebas unitarias en el modulo de profile para la pantalla de gestión de usuarios, 1 prueba de carga en modulo auth.
+
+Resumen de las pruebas creadas y ejecutadas (basado en los archivos de prueba presentes):
+
+1) Pruebas unitarias (`app/modules/auth/tests/test_unit.py` líneas 81-94 / 130-174) — 3 pruebas:
+    - `test_generate_verification_code`: Verifica que el código aleatorio de 6 dígitos se crea correctamente.
+    - `test_email_validation_flow`: Verifica el correcto funcionamiento de la verificación mediante correo electrónico.
+    - `test_email_validation_wrong_code`: Verifica que no se complete el registro si no se introduce el código correcto.
+2) Pruebas unitarias (`app/modules/profile/tests/test_unit.py` líneas 41-115) - 3 pruebas:
+    - `test_admin_requires_login`: Verifica que el admin esté registrado.
+    - `test_admin_list_profiles_access_and_content`: Verifica que se lista correctamente los perfiles registrados.
+    - `test_admin_delete_profile_flow`: Verifica el correcto funcionamiento de la eliminación de perfiles.
+3) Pruebas Selenium
+    - No se han realizado pruebas con seleniuk ya que tanto para el módulo de auth como el de profile se consideraba mala práctica de integración continua ya que era necesario el acceso al código aleatorio, que estaba incluido en el correo electrónico designado en el registro en cada caso.
+4) Pruebas locust (`app/modules/auth/locustfile.py` líneas 58-91) - 1 prueba:
+    - `EmailVerificationBehavior`: Verifica el correcto funcionamiento del WI con carga.
 
 ### Workflows Implementados
 
 ### Conclusión
 
+Pese a ser un WI de dificultad baja, ha habido varios problemas debido a una mala implementación en primer momento. Sin embargo esas complicaciones se pudieron superar para terminar puliendo la funcionalidad de manera correcta.  No he tenido gran carga de trabajo en el proyecto y me ha costado addaptarme a la forma de trabajo de los integrantes del grupo, distinta a la mía, por lo que he trabajado bastante en solitario. Como forma de añadir funcionalidad extra y que ayudara al desarrollo del work item, para trastear en el proyecto se añadió la pantalla de gestión de usuarios por el administrador, lo cual ayudó a entender distintas funcionalidades del proyecto en campos distintos a los de mi work item original.
 
 ## Manuel Zoilo Buzón Muñoz
 

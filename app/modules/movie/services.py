@@ -485,3 +485,147 @@ class MovieService(BaseService):
                 fromfile="version_1",
                 tofile="version_2"
             ))
+            
+            
+###################
+    # MINOR EDIT METHODS (No new DOI)
+    ###################
+    def edit_metadata(self, dataset: MovieDataset, new_title: str, new_description: str, new_tags: str, user_id: int, comment: str = None):
+        changes = {}
+        
+        # Detectar cambios
+        if dataset.ds_meta_data.title != new_title:
+            changes['title'] = {'old': dataset.ds_meta_data.title, 'new': new_title}
+            dataset.ds_meta_data.title = new_title
+        
+        if dataset.ds_meta_data.description != new_description:
+            changes['description'] = {'old': dataset.ds_meta_data.description, 'new': new_description}
+            dataset.ds_meta_data.description = new_description
+        
+        if dataset.ds_meta_data.tags != new_tags:
+            changes['tags'] = {'old': dataset.ds_meta_data.tags, 'new': new_tags}
+            dataset.ds_meta_data.tags = new_tags
+        
+        # Registrar en el log si hay cambios
+        if changes:
+            self.log_changelog(dataset.id, user_id, 'metadata', changes, comment)
+            
+        return changes
+    
+    def edit_authors(self, dataset: MovieDataset, new_authors: list, user_id: int, comment: str = None) -> bool:
+        """Edita los autores del dataset (protege el primer autor)"""
+        current_authors = dataset.ds_meta_data.authors
+        if not current_authors:
+            return False
+
+        old_normalized = [self.normalize_author(a) for a in current_authors]
+        new_normalized = [self.normalize_author(a) for a in new_authors if a.get('name', '').strip()]
+
+        self.validate_authors(old_normalized, new_normalized)
+
+        # Detectar cambios en el primer autor (affiliation/orcid)
+        main_author_changed = False
+        if (old_normalized[0]['affiliation'] != new_normalized[0]['affiliation'] or 
+            old_normalized[0]['orcid'] != new_normalized[0]['orcid']):
+            main_author_changed = True
+            
+            main_author = current_authors[0]
+            main_author.affiliation = new_normalized[0]['affiliation']
+            main_author.orcid = new_normalized[0]['orcid']
+
+        # Diferencias en autores secundarios
+        authors_removed, authors_added = self._diff_authors(old_normalized, new_normalized)
+        
+        if not authors_removed and not authors_added and not main_author_changed:
+            return False
+
+        self.update_authors(dataset, new_normalized[1:])
+
+        changes = {
+            'authors_removed': authors_removed,
+            'authors_added': authors_added,
+        }
+        
+        if main_author_changed:
+            changes['main_author_updated'] = {
+                'name': old_normalized[0]['name'],
+                'old_affiliation': old_normalized[0]['affiliation'],
+                'new_affiliation': new_normalized[0]['affiliation'],
+                'old_orcid': old_normalized[0]['orcid'],
+                'new_orcid': new_normalized[0]['orcid']
+            }
+
+        self.log_changelog(dataset.id, user_id, 'authors', changes, comment)
+
+        return True
+
+
+    def validate_authors(self, old: list, new: list):
+        if not new:
+            raise ValueError("No se puede dejar la lista de autores vacía")
+        
+        old_main_name = old[0]['name'].strip().lower()
+        new_main_name = new[0]['name'].strip().lower()
+        
+        if old_main_name != new_main_name:
+            raise ValueError("El autor que subió el dataset no puede editarse")
+
+
+    def _diff_authors(self, old: list, new: list):
+        removed = [self.author_to_dict(a) for a in old[1:] if a not in new[1:]]
+        added = [self.author_to_dict(a) for a in new[1:] if a not in old[1:]]
+        return removed, added
+
+
+    def normalize_author(self, author_data):
+        if isinstance(author_data, dict):
+            return {
+                'name': (author_data.get('name') or '').strip(),
+                'affiliation': (author_data.get('affiliation') or '').strip() or None,
+                'orcid': (author_data.get('orcid') or '').strip() or None
+            }
+        return {
+            'name': (author_data.name or '').strip(),
+            'affiliation': (author_data.affiliation or '').strip() or None,
+            'orcid': (author_data.orcid or '').strip() or None
+        }
+
+
+    def update_authors(self, dataset: MovieDataset, new_secondaries: list):
+        Author.query.filter(
+            Author.ds_meta_data_id == dataset.ds_meta_data.id,
+            Author.id != dataset.ds_meta_data.authors[0].id
+        ).delete(synchronize_session=False)
+
+        for author_data in new_secondaries:
+            db.session.add(Author(
+                name=author_data['name'],
+                affiliation=author_data.get('affiliation'),
+                orcid=author_data.get('orcid'),
+                ds_meta_data_id=dataset.ds_meta_data.id
+            ))
+
+
+    def author_to_dict(self, author_normalized):
+        return {
+            'name': author_normalized['name'],
+            'affiliation': author_normalized['affiliation'] or None,
+            'orcid': author_normalized['orcid'] or None
+        }
+
+
+    def log_changelog(self, dataset_id: int, user_id: int, change_type: str, changes: dict, comment: str):
+        changelog = DatasetChangeLog(
+            dataset_id=dataset_id,
+            user_id=user_id,
+            change_type=change_type,
+            changes=changes,
+            comment=comment
+        )
+        db.session.add(changelog)
+        
+    def get_change_history(self, dataset_id: int):
+        """Obtiene el historial de cambios menores de un dataset"""
+        return DatasetChangeLog.query.filter_by(
+            dataset_id=dataset_id
+        ).order_by(DatasetChangeLog.created_at.desc()).all()

@@ -149,10 +149,10 @@
 
                 <!-- Tags -->
                 <div class="col-12">
-                    <div class="mb-3">
-                        {{ form.tags.label(class="form-label") }}
-                        {{ form.tags(class="form-control", placeholder="movies, cinema, classics") }}
-                        <small class="form-text text-muted">Separate multiple tags with commas</small>
+                <div class="mb-3">
+                    {{ form.tags.label(class="form-label") }} <span class="text-danger">*</span>
+                    {{ form.tags(class="form-control", placeholder="movies, cinema, classics") }}
+                    <small class="form-text text-muted">Separate multiple tags with commas (required)</small>
                         {% if form.tags.errors %}
                             <div class="text-danger small mt-1">
                                 {% for error in form.tags.errors %}
@@ -214,63 +214,84 @@
 
             </div>
 
-            <!-- Authors Section -->
-            <h1 class="h3 mb-3 mt-4">Authors</h1>
-            <div class="col-12" id="authors-container">
-                {% if form.authors %}
-                    {% for author_form in form.authors %}
-                        {% if author_form.name %}
-                        <div class="author-entry" data-author-index="{{ loop.index0 }}">
-                            <div class="row">
-                                <div class="col-lg-12 mb-2">
-                                    <label class="form-label fw-bold">Author {{ loop.index }}</label>
-                                    {% if loop.index0 == 0 %}
-                                        <span class="badge bg-primary ms-2">Primary Author</span>
+                <!-- Authors Section -->
+                <h1 class="h3 mb-3 mt-4">Authors</h1>
+                <div class="col-12" id="authors-container">
+                    {% if form.authors %}
+                        {% for author_form in form.authors %}
+                            {% if author_form.name %}
+                            <div class="author-entry" data-author-index="{{ loop.index0 }}">
+                                <div class="row">
+                                    <div class="col-lg-12 mb-2">
+                                        <label class="form-label fw-bold">Author {{ loop.index }}</label>
+                                        {% if loop.index0 == 0 %}
+                                            <span class="badge bg-primary ms-2">Primary Author</span>
+                                        {% endif %}
+                                    </div>
+                                    
+                                    <div class="col-lg-6 col-12 mb-3">
+                                        <label class="form-label">Name <span class="text-danger">*</span></label>
+                                        {% if loop.index0 == 0 %}
+                                            {{ author_form.form.name(class="form-control", placeholder="Surname, Name", readonly=True) }}
+                                            <small class="form-text text-muted">Primary author cannot be edited</small>
+                                        {% else %}
+                                            {{ author_form.form.name(class="form-control", placeholder="Surname, Name") }}
+                                        {% endif %}
+                                        {% if author_form.form.name.errors %}
+                                            <div class="text-danger small mt-1">
+                                                {% for error in author_form.form.name.errors %}
+                                                    {{ error }}
+                                                {% endfor %}
+                                            </div>
+                                        {% endif %}
+                                    </div>
+
+                                    <div class="col-lg-6 col-12 mb-3">
+                                        <label class="form-label">Affiliation</label>
+                                        {{ author_form.form.affiliation(class="form-control", placeholder="Institution or Organization") }}
+                                        {% if author_form.form.affiliation.errors %}
+                                            <div class="text-danger small mt-1">
+                                                {% for error in author_form.form.affiliation.errors %}
+                                                    {{ error }}
+                                                {% endfor %}
+                                            </div>
+                                        {% endif %}
+                                    </div>
+
+                                    <div class="col-lg-6 col-12 mb-3">
+                                        <label class="form-label">ORCID</label>
+                                        {{ author_form.form.orcid(class="form-control", placeholder="0000-0000-0000") }}
+                                        <small class="form-text text-muted">Format: XXXX-XXXX-XXXX</small>
+                                        {% if author_form.form.orcid.errors %}
+                                            <div class="text-danger small mt-1">
+                                                {% for error in author_form.form.orcid.errors %}
+                                                    {{ error }}
+                                                {% endfor %}
+                                            </div>
+                                        {% endif %}
+                                    </div>
+                                    
+                                    {% if loop.index0 > 0 %}
+                                    <div class="col-12">
+                                        <button type="button" class="btn btn-sm btn-danger remove-author-btn" onclick="removeAuthor({{ loop.index0 }})">
+                                            <i data-feather="x"></i> Remove Author
+                                        </button>
+                                    </div>
                                     {% endif %}
                                 </div>
-                                
-                                <div class="col-lg-6 col-12 mb-3">
-                                    <label class="form-label">Name <span class="text-danger">*</span></label>
-                                    {% if loop.index0 == 0 %}
-                                        {{ author_form.form.name(class="form-control", placeholder="Surname, Name", readonly=True) }}
-                                        <small class="form-text text-muted">Primary author cannot be edited</small>
-                                    {% else %}
-                                        {{ author_form.form.name(class="form-control", placeholder="Surname, Name") }}
-                                    {% endif %}
-                                </div>
-
-                                <div class="col-lg-6 col-12 mb-3">
-                                    <label class="form-label">Affiliation</label>
-                                    {{ author_form.form.affiliation(class="form-control", placeholder="Institution or Organization") }}
-                                </div>
-
-                                <div class="col-lg-6 col-12 mb-3">
-                                    <label class="form-label">ORCID</label>
-                                    {{ author_form.form.orcid(class="form-control", placeholder="0000-0000-0000-0000") }}
-                                    <small class="form-text text-muted">Optional but recommended</small>
-                                </div>
-                                
-                                {% if loop.index0 > 0 %}
-                                <div class="col-12">
-                                    <button type="button" class="btn btn-sm btn-danger remove-author-btn" onclick="removeAuthor({{ loop.index0 }})">
-                                        <i data-feather="x"></i> Remove Author
-                                    </button>
-                                </div>
-                                {% endif %}
                             </div>
-                        </div>
-                        {% endif %}
-                    {% endfor %}
-                {% endif %}
-            </div>
+                            {% endif %}
+                        {% endfor %}
+                    {% endif %}
+                </div>
 
-            <!-- Add Author Button -->
-            <div class="col-12 mt-3">
-                <button type="button" class="btn btn-outline-primary" onclick="addAuthor()">
-                    <i data-feather="plus"></i> Add Another Author
-                </button>
+                <!-- Add Author Button -->
+                <div class="col-12 mt-3">
+                    <button type="button" class="btn btn-outline-primary" onclick="addAuthor()">
+                        <i data-feather="plus"></i> Add Another Author
+                    </button>
+                </div>
             </div>
-        </div>
 
         <!-- Right Column: File Upload -->
         <div class="col-xl-6 col-lg-12 col-md-12 col-sm-12">

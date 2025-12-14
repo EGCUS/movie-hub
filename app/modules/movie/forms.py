@@ -1,24 +1,86 @@
+import re
 from flask_wtf import FlaskForm
 from flask_wtf.file import FileField, FileRequired, FileAllowed, MultipleFileField
+from jsonschema import ValidationError
 from wtforms import FieldList, FormField, SelectField, StringField, SubmitField, TextAreaField
-from wtforms.validators import DataRequired, Optional, Length
+from wtforms.validators import DataRequired, Optional, Length, ValidationError as WTFormsValidationError
 from app.modules.dataset.models import PublicationType
 
 
+def validate_author_name(form, field):
+    if any(char.isdigit() for char in field.data):
+        raise WTFormsValidationError("El nombre del autor no puede contener números")
+    if field.data.count(',') > 1:
+        raise WTFormsValidationError("El nombre solo puede contener una coma como máximo")
+
+
+def validate_orcid(form, field):
+    if not field.data:  # Si está vacío, es opcional
+        return
+    orcid_pattern = r'^\d{4}-\d{4}-\d{4}$'
+    if not re.match(orcid_pattern, field.data.strip()):
+        raise WTFormsValidationError("El ORCID debe tener el formato XXXX-XXXX-XXXX")
+
+
 class AuthorForm(FlaskForm):
-    name = StringField("Name", validators=[DataRequired()])
-    affiliation = StringField("Affiliation")
-    orcid = StringField("ORCID")
+    name = StringField(
+        "Name", 
+        validators=[
+            DataRequired(message="El nombre es obligatorio"),
+            validate_author_name
+        ],
+        description="Formato: Apellido(s), Nombre"
+    )
+    affiliation = StringField("Affiliation", validators=[Optional()])
+    orcid = StringField(
+        "ORCID", 
+        validators=[Optional(), validate_orcid],
+        description="Formato: XXXX-XXXX-XXXX"
+    )
+
+    def get_author(self):
+        """Procesa y retorna los datos del autor normalizados"""
+        try:
+            name = self.format_author_name(self.name.data)
+        except ValueError as e:
+            raise ValidationError(str(e))
+
+        return {
+            "name": name,
+            "affiliation": self.affiliation.data.strip() if self.affiliation.data else None,
+            "orcid": self.orcid.data.strip() if self.orcid.data else None,
+        }
+
+    def format_author_name(self, name: str) -> str:
+        name = name.strip()
+
+        # Caso 1: Ya tiene formato "Apellido, Nombre"
+        if ',' in name :
+            parts = [p.strip() for p in name.split(',', 1)]
+
+            # Validar que tenga ambas partes (apellido Y nombre)
+            if len(parts) != 2 or not parts[0] or not parts[1]:
+                raise ValueError("Debe incluir al menos nombre y apellido en formato 'Apellido, Nombre'")
+
+            last_name = parts[0].title()
+            first_names = ' '.join(p.title() for p in parts[1].split())
+            return f"{last_name}, {first_names}"
+
+        # Caso 2: Sin coma - convertir "Nombre Apellido" → "Apellido, Nombre"
+        if not ',' in name:
+            parts = name.split()
+
+            if len(parts) < 2:
+                raise ValueError("Debe incluir al menos nombre y apellido")
+
+            last_name = parts[-1].title()
+            first_names = ' '.join(p.title() for p in parts[:-1])
+            return f"{last_name}, {first_names}"
+        else:
+            raise ValueError("Formato de nombre inválido")
 
     class Meta:
         csrf = False
-
-    def get_author(self):
-        return {
-            "name": self.name.data,
-            "affiliation": self.affiliation.data,
-            "orcid": self.orcid.data,
-        }
 
 
 class MovieForm(FlaskForm):
@@ -32,7 +94,8 @@ class MovieForm(FlaskForm):
         default=PublicationType.OTHER.value
     )
     publication_doi = StringField("Publication DOI", validators=[Optional()])
-    tags = StringField("Tags (separated by commas)", validators=[Optional()])
+
+    tags = StringField("Tags (separated by commas)", validators=[DataRequired()])
 
     # Community (existing or new)
     community_id = SelectField(
@@ -97,7 +160,7 @@ class MovieEditMetadataForm(FlaskForm):
     """Form for minor metadata edits (no new DOI)"""
     title = StringField("Title", validators=[DataRequired(), Length(max=120)])
     desc = TextAreaField("Description", validators=[DataRequired()])
-    tags = StringField("Tags (separated by commas)", validators=[Optional()])
+    tags = StringField("Tags (separated by commas)", validators=[DataRequired()]) #Al menos incluir una tag
     authors = FieldList(FormField(AuthorForm), min_entries=1)
 
     edit_comment = TextAreaField(

@@ -47,88 +47,6 @@ El script realizará automáticamente:
 - ✅ Inicio de la máquina virtual
 - ✅ Provisión con Puppet (base de datos, Python 3.12, dependencias, migraciones y seeders)
 
-### 🐳 Despliegue con Docker
-
-Movie-Hub también ofrece despliegue con **Docker** para entornos de producción y desarrollo, utilizando contenedores para una configuración rápida y reproducible. 🚀
-
-#### 📋 Requisitos previos
-
-- **Docker** y **Docker Compose** instalados en tu sistema
-- **Archivo de variables de entorno** `.env.docker` configurado, para ello se puede tomar el archivo `.env.docker.example` y rellenarlo de la siguiente manera para usar una base de datos autocontenida:
-
-```
-FLASK_ENV=development
-MARIADB_HOSTNAME=db
-MARIADB_PORT=3306
-MARIADB_DATABASE=uvlhubdb
-MARIADB_TEST_DATABASE=uvlhubdb_test
-MARIADB_USER=uvlhubdb_user
-MARIADB_PASSWORD=uvlhubdb_password
-MARIADB_ROOT_PASSWORD=uvlhubdb_root_password
-WORKING_DIR=/app
-```
-
-#### ⚡ Instalación rápida (producción)
-
-Para desplegar la versión de producción (rama `main`):
-
-```bash
-# Levantar los servicios con el perfil main, nótese que se puede ejecutar desde la raíz del proyecto, para comodidad del usuario
-docker compose -f docker/docker-compose.yml --profile main up -d
-```
-
-Esto iniciará:
-- ✅ Contenedor de la aplicación web (puerto 5002)
-- ✅ Base de datos MariaDB
-- ✅ Espera automática a que la DB esté lista
-- ✅ Migraciones y seeders ejecutados
-
-#### 🟢 Instalación para preview
-
-Para desplegar la versión de preview (rama `develop`):
-
-```bash
-# Levantar los servicios con el perfil develop, nótese que se puede ejecutar desde la raíz del proyecto, para comodidad del usuario
-docker compose -f docker/docker-compose.yml --profile develop up -d
-```
-
-Esto iniciará:
-- ✅ Contenedor de la aplicación web (puerto 5003)
-- ✅ Base de datos MariaDB
-- ✅ Espera automática a que la DB esté lista
-- ✅ Migraciones y seeders ejecutados
-
-#### 🌐 Acceder a la aplicación
-
-- **Producción**: `http://localhost:5002`
-- **Preview**: `http://localhost:5003`
-
-#### 📝 Comandos útiles de Docker
-
-```bash
-# Ver logs de los contenedores
-docker logs -f <nombre_o_id_del_contenedor>
-
-# Ver estado de los contenedores
-docker ps
-
-# Listar todos los contenedores, aunque no estén funcionando
-docker ps -a
-
-# Limpiar volúmenes, ojo: borra todo (contenedores, incluido el de la base de datos, volúmenes y networks)
-docker compose -f docker/docker-compose.yml down -v
-```
-
-#### 🛠️ Configuración del contenedor
-
-El **Dockerfile** (`docker/images/Dockerfile`) configura:
-- **Python 3.12** como base
-- **Dependencias** instaladas desde `requirements.txt`
-- **Rosemary** (CLI del proyecto) instalado
-- **Scripts de inicio** para migraciones y seeders
-- **Puerto 5000** expuesto
-
-Los contenedores esperan automáticamente a que MariaDB esté disponible antes de iniciar la aplicación. 🔄
 
 ### 🔧 Instalación manual
 
@@ -261,4 +179,93 @@ vagrant destroy -f
 vagrant up
 ```
 
----
+
+## 🐳 Despliegue con Docker
+
+Movie-Hub también ofrece despliegue con **Docker** para entornos de producción y desarrollo, utilizando contenedores para una configuración rápida y reproducible.
+
+### 📋 Requisitos previos
+
+- **Docker** y **Docker Compose** instalados en tu sistema
+- **Archivo de variables de entorno** `.env.docker` configurado, para ello se puede tomar el archivo `.env.docker.example` y rellenarlo de la siguiente manera para usar una base de datos autocontenida:
+
+```
+FLASK_APP_NAME="movie-hub"
+FLASK_ENV=development
+MARIADB_HOSTNAME=db
+MARIADB_PORT=3306
+MARIADB_DATABASE=uvlhubdb
+MARIADB_TEST_DATABASE=uvlhubdb_test
+MARIADB_USER=uvlhubdb_user
+MARIADB_PASSWORD=uvlhubdb_password
+MARIADB_ROOT_PASSWORD=uvlhubdb_root_password
+WORKING_DIR=/app
+```
+
+### ⚡ Instalación rápida (producción)
+
+Para desplegar la versión de producción (rama `main`):
+
+```bash
+# Nótese que los comandos se ejecutan desde la raíz del proyecto, para comodidad del usuario
+# Traer los cambios de dockerhub
+docker compose -f docker/docker-compose.yml --profile main pull
+# Levantar los servicios
+docker compose -f docker/docker-compose.yml --profile main up -d
+```
+
+Esto iniciará:
+- ✅ Contenedor de la aplicación web (puerto 5002)
+- ✅ Base de datos MariaDB
+- ✅ Espera automática a que la DB esté lista
+- ✅ Migraciones y seeders ejecutados
+
+### 🟢 Instalación para preview
+
+Para desplegar la versión de preview (rama `develop`):
+
+```bash
+# Nótese que los comandos se ejecutan desde la raíz del proyecto, para comodidad del usuario
+# Traer los cambios de dockerhub
+docker compose -f docker/docker-compose.yml --profile develop pull
+# Levantar los servicios
+docker compose -f docker/docker-compose.yml --profile develop up -d
+```
+
+Esto iniciará:
+- ✅ Contenedor de la aplicación web (puerto 5003)
+- ✅ Base de datos MariaDB
+- ✅ Espera automática a que la DB esté lista
+- ✅ Migraciones y seeders ejecutados
+
+### 🌐 Acceder a la aplicación
+
+- **Producción**: `http://localhost:5002`
+- **Preview**: `http://localhost:5003`
+
+### 📝 Comandos útiles de Docker
+
+```bash
+# Ver logs de los contenedores
+docker logs -f <nombre_o_id_del_contenedor>
+
+# Ver estado de los contenedores
+docker ps
+
+# Listar todos los contenedores, aunque no estén funcionando
+docker ps -a
+
+# Limpiar volúmenes, ojo: borra todo (contenedores, incluido el de la base de datos, volúmenes y networks)
+docker compose -f docker/docker-compose.yml down -v
+```
+
+### 🛠️ Configuración del contenedor
+
+El **Dockerfile** (`docker/images/Dockerfile`) configura:
+- **Python 3.12** como base
+- **Dependencias** instaladas desde `requirements.txt`
+- **Rosemary** (CLI del proyecto) instalado
+- **Scripts de inicio** para migraciones y seeders
+- **Puerto 5000** expuesto
+
+Los contenedores esperan automáticamente a que MariaDB esté disponible antes de iniciar la aplicación.
