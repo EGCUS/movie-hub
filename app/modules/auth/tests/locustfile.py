@@ -64,7 +64,6 @@ class EmailVerificationBehavior(TaskSet):
     """
 
     def on_start(self):
-        # Crear usuario nuevo y dejar la sesión con la verificación pendiente
         self.signup()
 
     def signup(self):
@@ -80,7 +79,6 @@ class EmailVerificationBehavior(TaskSet):
 
     @task(3)
     def submit_wrong_validation_key(self):
-        # Accede al formulario de validación y envía una clave errónea
         resp = self.client.get("/email_validation")
         csrf = get_csrf_token(resp)
         self.client.post(
@@ -90,5 +88,4 @@ class EmailVerificationBehavior(TaskSet):
         )
 
 
-# Añadimos el comportamiento de verificación al conjunto de tareas del usuario
 AuthUser.tasks.append(EmailVerificationBehavior)
