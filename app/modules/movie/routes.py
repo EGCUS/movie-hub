@@ -7,6 +7,9 @@ from zipfile import ZipFile
 import json
 import logging
 
+from app.modules.community.models import Community
+from werkzeug.utils import secure_filename
+from flask import current_app
 from flask_login import current_user, login_required
 from app import db
 from app.modules.featuremodel.models import FMMetaData, FeatureModel
@@ -45,19 +48,23 @@ movie_service = MovieService()
 fakenodo_adapter = FakenodoAdapter()
 
 #GET MOVIES
+
+
 @movie_bp.route('/moviedataset', methods=['GET'])
 def index():
     """Redirect to list all movie datasets"""
     return redirect(url_for('movie.list_datasets'))
 
+
 @movie_bp.route("/moviedataset/list", methods=["GET"])
 def list_datasets():
     datasets = movie_service.get_all_moviedatasets()
-    
+
     return render_template(
         "movie/list_datasets.html",
         datasets=datasets
     )
+
 
 @movie_bp.route("/moviedataset/my-datasets", methods=["GET"])
 @login_required
@@ -66,48 +73,47 @@ def my_datasets():
     # Usar los métodos del servicio que ya existen
     synchronized_datasets = movie_service.get_moviedataset_by_user(current_user.id)
     unsynchronized_datasets = movie_service.get_unsynchronized_datasets_by_user(current_user.id)
-    
+
     return render_template(
         "movie/my_datasets.html",
         synchronized_datasets=synchronized_datasets,
         unsynchronized_datasets=unsynchronized_datasets
     )
-    
-    
+
+
 @movie_bp.route("/moviedataset/<int:dataset_id>/publish", methods=["POST"])
 @login_required
 def publish_dataset(dataset_id):
     """Publica un dataset en Fakenodo"""
     try:
         dataset = movie_service.get_moviedataset(dataset_id)
-        
+
         # Verificar permisos
         if dataset.user_id != current_user.id:
             return jsonify({"error": "You don't have permission to publish this dataset"}), 403
-        
+
         # Buscar Fakenodo asociado
         from app.modules.fakenodo.models import Fakenodo
         fakenodo = Fakenodo.query.filter_by(dataset_id=dataset.id).first()
-        
+
         if not fakenodo:
             return jsonify({"error": "Fakenodo record not found for this dataset"}), 404
-        
+
         # Publicar en Fakenodo - esto ya verifica todo y actualiza
         published_fakenodo = fakenodo_adapter.publish_fakenodo(fakenodo.id)
-        
+
         flash('Dataset published successfully in Fakenodo!', 'success')
         return jsonify({
             "message": "Dataset published successfully",
             "doi": published_fakenodo.doi,
             "status": published_fakenodo.status
         }), 200
-        
+
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
     except Exception as e:
         logger.exception("Error publishing dataset")
         return jsonify({"error": f"Error publishing dataset: {str(e)}"}), 500
-    
 
 
 @movie_bp.route("/moviedataset/<int:dataset_id>", methods=["GET"])
@@ -117,34 +123,39 @@ def view_dataset(dataset_id):
     user_cookie = ds_view_record_service.create_cookie(dataset=dataset)
     resp = make_response(render_template("movie/view_dataset.html", dataset=dataset))
     resp.set_cookie("view_cookie", user_cookie)
-    
+
     return resp
 
 # Manage
+
+
 @movie_bp.route("/moviedataset/<int:dataset_id>/manage", methods=["GET"])
 @login_required
 def manage_dataset(dataset_id):
     dataset = movie_service.get_moviedataset(dataset_id)
-    
+
     if dataset.user_id != current_user.id:
         abort(403, "You don't have permission to manage this dataset")
-    
+
     return render_template(
         "movie/manage_dataset.html",
         dataset=dataset
     )
 
 # Para ver los detalles de la pelÃ­cula
+
+
 @movie_bp.route("/movie/<int:movie_id>", methods=["GET"])
 def view_movie(movie_id):
     movie = movie_service.get_movie(movie_id)
     dataset = movie.dataset
-    
+
     return render_template(
         "movie/view_movie.html",
         movie=movie,
         dataset=dataset
     )
+
 
 @movie_bp.route("/moviedataset/<int:dataset_id>/download", methods=["GET"])
 def download_dataset(dataset_id):
@@ -216,6 +227,9 @@ def download_dataset(dataset_id):
 def upload_dataset():
     form = MovieForm()
 
+    communities = Community.query.order_by(Community.name.asc()).all()
+    form.community_id.choices = [(0, "Any")] + [(c.id, c.name) for c in communities]
+
     if request.method == 'GET':
         if len(form.authors) == 0:
             form.authors.append_entry({
@@ -227,17 +241,54 @@ def upload_dataset():
     if form.validate_on_submit():
         try:
             logger.info("=== Starting dataset upload ===")
-            
+
+            # ==========================================
+            # COMMUNITY: existing or new
+            # ==========================================
+            selected_community_id = form.get_selected_community_id()
+
+            new_name = (form.new_community_name.data or "").strip()
+            new_logo = form.new_community_logo.data
+
+            if new_name:
+                existing = Community.query.filter_by(name=new_name).first()
+                if existing:
+                    selected_community_id = existing.id
+                else:
+                    logo_filename = None
+
+                    # Guardar logo si viene
+                    if new_logo and getattr(new_logo, "filename", ""):
+                        logo_dir = os.path.join(current_app.static_folder, "img", "community")
+                        os.makedirs(logo_dir, exist_ok=True)
+
+                        os.makedirs(logo_dir, exist_ok=True)
+
+                        original = secure_filename(new_logo.filename)
+                        ext = os.path.splitext(original)[1].lower()
+
+                        logo_filename = f"community_{uuid.uuid4().hex}{ext}"
+                        save_path = os.path.join(logo_dir, logo_filename)
+
+                        new_logo.save(save_path)
+
+                    new_c = Community(name=new_name, logo_url=logo_filename)
+                    db.session.add(new_c)
+                    db.session.flush()
+                    selected_community_id = new_c.id
+
+
             # Detectar qué botón se presionó
             action = request.form.get('action')  # 'draft' o 'publish'
-            
+
             if action == 'publish':
                 # Publica
                 logger.info("Action: Upload and Publish")
                 movie_dataset, total_movies = movie_service.upload_and_publish_dataset(
                     form=form,
                     current_user=current_user,
-                    dsmetadata_service=dsmetadata_service
+                    dsmetadata_service=dsmetadata_service,
+                    community_id=selected_community_id
                 )
                 action_text = 'publish'
             else:
@@ -246,13 +297,13 @@ def upload_dataset():
                 movie_dataset, total_movies, _ = movie_service.upload_draft_dataset(
                     form=form,
                     current_user=current_user,
-                    dsmetadata_service=dsmetadata_service
+                    dsmetadata_service=dsmetadata_service,
+                    community_id=selected_community_id
                 )
                 action_text = 'draft'
-            
+
             logger.info(f"Dataset {movie_dataset.id} processed successfully with {total_movies} movies")
-            
-            
+
             return redirect(url_for(
                 'movie.upload_dataset',
                 success='true',
@@ -280,6 +331,8 @@ def delete_file():
     return jsonify({"message": "File deletion temporarily disabled"}), 501
 
 # SELECT VERSION SCREEN
+
+
 @movie_bp.route("/moviedataset/<int:dataset_id>/versions", methods=["GET"])
 def select_versions(dataset_id):
     """
@@ -306,13 +359,11 @@ def select_versions(dataset_id):
 
     versions.sort(key=lambda v: v.created_at, reverse=True)
 
-
     return render_template(
         "movie/select_versions.html",
         dataset=dataset,
         versions=versions
     )
-
 
 
 # JSON: COMPARE TWO VERSIONS
@@ -359,22 +410,23 @@ def movie_doi_view(doi):
     """
     # Buscar el dataset por DOI
     ds_meta_data = dsmetadata_service.filter_by_doi(doi)
-    
+
     if not ds_meta_data:
         abort(404, "Dataset not found")
-    
+
     dataset = ds_meta_data.dataset
-    
+
     # Verificar que sea un MovieDataset
     if not isinstance(dataset, MovieDataset):
         abort(404, "Not a movie dataset")
-    
+
     # Crear cookie de visualización
     user_cookie = ds_view_record_service.create_cookie(dataset=dataset)
     resp = make_response(render_template("movie/view_dataset.html", dataset=dataset))
     resp.set_cookie("view_cookie", user_cookie)
-    
+
     return resp
+
 
 @movie_bp.route("/moviedataset/<int:dataset_id>/changelog", methods=["GET"])
 def view_changelog(dataset_id):
@@ -383,7 +435,7 @@ def view_changelog(dataset_id):
     """
     dataset = movie_service.get_moviedataset(dataset_id)
     change_history = movie_service.get_change_history(dataset_id)
-    
+
     return render_template(
         "movie/changelog.html",
         dataset=dataset,
@@ -396,44 +448,44 @@ def api_changelog(dataset_id):
     #CAMBIOS EN JSON
     dataset = movie_service.get_moviedataset(dataset_id)
     change_history = movie_service.get_change_history(dataset_id)
-    
+
     return jsonify({
         "dataset_id": dataset_id,
         "dataset_title": dataset.ds_meta_data.title,
         "changes": [change.to_dict() for change in change_history]
     })
-    
-    
+
+
 @movie_bp.route("/moviedataset/<int:dataset_id>/edit", methods=["GET", "POST"])
 @login_required
 def edit_dataset_metadata(dataset_id):
     dataset = movie_service.get_moviedataset(dataset_id)
-    
+
     if dataset.user_id != current_user.id:
         abort(403, "You don't have permission to edit this dataset")
-    
+
     form = MovieEditMetadataForm()
-    
+
     if request.method == 'GET':
         # Prellenar campos simples
         form.title.data = dataset.ds_meta_data.title
         form.desc.data = dataset.ds_meta_data.description
         form.tags.data = dataset.ds_meta_data.tags
-        
+
         # Prellenar autores
         while len(form.authors) > 0:
             form.authors.pop_entry()
-        
+
         form.authors.entries = []
         for author in dataset.ds_meta_data.authors:
-            # Crear un nuevo AuthorForm 
+            # Crear un nuevo AuthorForm
             from app.modules.movie.forms import AuthorForm
             author_subform = AuthorForm(prefix=f'authors-{len(form.authors)}')
             author_subform.name.data = author.name
             author_subform.affiliation.data = author.affiliation or ''
             author_subform.orcid.data = author.orcid or ''
             form.authors.entries.append(author_subform)
-    
+
     if form.validate_on_submit():
         try:
             # Editar metadata
@@ -445,7 +497,7 @@ def edit_dataset_metadata(dataset_id):
                 user_id=current_user.id,
                 comment=form.edit_comment.data
             )
-            
+
             new_authors = form.get_authors()
             movie_service.edit_authors(
                 dataset=dataset,
@@ -453,21 +505,17 @@ def edit_dataset_metadata(dataset_id):
                 user_id=current_user.id,
                 comment=form.edit_comment.data
             )
-            
+
             flash('Dataset metadata updated successfully! (No new version created)', 'success')
             return redirect(url_for('movie.view_dataset', dataset_id=dataset.id))
-            
+
         except Exception as e:
             db.session.rollback()
             logger.exception("Error editing dataset metadata")
             flash(f'Error updating metadata: {str(e)}', 'error')
-    
+
     return render_template(
         "movie/edit_dataset.html",
         form=form,
         dataset=dataset
     )
-
-
-
-
