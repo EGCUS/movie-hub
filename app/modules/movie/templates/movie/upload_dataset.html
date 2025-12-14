@@ -162,6 +162,56 @@
                         {% endif %}
                     </div>
                 </div>
+
+                <!-- Community -->
+                <div class="col-12">
+                    <div class="mb-3">
+                        {{ form.community_id.label(class="form-label") }}
+                        {{ form.community_id(class="form-select") }}
+                        <small class="form-text text-muted">
+                        Selecciona una comunidad existente o crea una nueva abajo.
+                        </small>
+                        {% if form.community_id.errors %}
+                        <div class="text-danger small mt-1">
+                            {% for error in form.community_id.errors %}
+                            {{ error }}
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="col-12">
+                    <div class="mb-3">
+                        {{ form.new_community_name.label(class="form-label") }}
+                        {{ form.new_community_name(class="form-control", placeholder="Nombre de la nueva comunidad (opcional)") }}
+                        {% if form.new_community_name.errors %}
+                        <div class="text-danger small mt-1">
+                            {% for error in form.new_community_name.errors %}
+                            {{ error }}
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="col-12">
+                    <div class="mb-3">
+                        {{ form.new_community_logo.label(class="form-label") }}
+                        {{ form.new_community_logo(class="form-control") }}
+                        <small class="form-text text-muted">
+                        Opcional: logo (png/jpg/jpeg/svg).
+                        </small>
+                        {% if form.new_community_logo.errors %}
+                        <div class="text-danger small mt-1">
+                            {% for error in form.new_community_logo.errors %}
+                            {{ error }}
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+
             </div>
 
                 <!-- Authors Section -->

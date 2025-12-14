@@ -13,12 +13,14 @@ def validate_author_name(form, field):
     if field.data.count(',') > 1:
         raise WTFormsValidationError("El nombre solo puede contener una coma como máximo")
 
+
 def validate_orcid(form, field):
     if not field.data:  # Si está vacío, es opcional
         return
     orcid_pattern = r'^\d{4}-\d{4}-\d{4}$'
     if not re.match(orcid_pattern, field.data.strip()):
         raise WTFormsValidationError("El ORCID debe tener el formato XXXX-XXXX-XXXX")
+
 
 class AuthorForm(FlaskForm):
     name = StringField(
@@ -35,7 +37,7 @@ class AuthorForm(FlaskForm):
         validators=[Optional(), validate_orcid],
         description="Formato: XXXX-XXXX-XXXX"
     )
-    
+
     def get_author(self):
         """Procesa y retorna los datos del autor normalizados"""
         try:
@@ -48,38 +50,37 @@ class AuthorForm(FlaskForm):
             "affiliation": self.affiliation.data.strip() if self.affiliation.data else None,
             "orcid": self.orcid.data.strip() if self.orcid.data else None,
         }
-    
+
     def format_author_name(self, name: str) -> str:
         name = name.strip()
-        
+
         # Caso 1: Ya tiene formato "Apellido, Nombre"
         if ',' in name :
             parts = [p.strip() for p in name.split(',', 1)]
-            
+
             # Validar que tenga ambas partes (apellido Y nombre)
             if len(parts) != 2 or not parts[0] or not parts[1]:
                 raise ValueError("Debe incluir al menos nombre y apellido en formato 'Apellido, Nombre'")
-            
+
             last_name = parts[0].title()
             first_names = ' '.join(p.title() for p in parts[1].split())
             return f"{last_name}, {first_names}"
-        
+
         # Caso 2: Sin coma - convertir "Nombre Apellido" → "Apellido, Nombre"
         if not ',' in name:
             parts = name.split()
-            
+
             if len(parts) < 2:
                 raise ValueError("Debe incluir al menos nombre y apellido")
-            
+
             last_name = parts[-1].title()
             first_names = ' '.join(p.title() for p in parts[:-1])
             return f"{last_name}, {first_names}"
         else:
             raise ValueError("Formato de nombre inválido")
-    
+
     class Meta:
         csrf = False
-
 
 
 class MovieForm(FlaskForm):
@@ -93,21 +94,48 @@ class MovieForm(FlaskForm):
         default=PublicationType.OTHER.value
     )
     publication_doi = StringField("Publication DOI", validators=[Optional()])
+
     tags = StringField("Tags (separated by commas)", validators=[DataRequired()])
-    
+
+    # Community (existing or new)
+    community_id = SelectField(
+        "Community",
+        choices=[],
+        coerce=int,
+        validators=[Optional()],
+        validate_choice=False,
+        default=0
+    )
+
+    new_community_name = StringField(
+        "New Community Name",
+        validators=[Optional(), Length(max=120)]
+    )
+
+    new_community_logo = FileField(
+        "New Community Logo",
+        validators=[Optional(), FileAllowed(['png', 'jpg', 'jpeg', 'svg'], 'Only image files are allowed!')]
+    )
+
     authors = FieldList(FormField(AuthorForm))
-    
+
     # File upload
     file = MultipleFileField(
-            "Movie Dataset Files", 
+            "Movie Dataset Files",
             validators=[
                 FileRequired(message="Please select at least one file"),
                 FileAllowed(['json'], 'Only JSON files are allowed!')
             ]
         )
-    
+
     submit = SubmitField("Upload Dataset")
-    
+
+    def get_selected_community_id(self):
+        cid = self.community_id.data
+        if cid in (None, 0):
+            return None
+        return cid
+
     def get_dsmetadata(self):
         publication_type_converted = self.convert_publication_type(self.publication_type.data)
         return {
@@ -117,30 +145,30 @@ class MovieForm(FlaskForm):
             "publication_doi": self.publication_doi.data,
             "tags": self.tags.data,
         }
-    
+
     def convert_publication_type(self, value):
         for pt in PublicationType:
             if pt.value == value:
                 return pt
         return PublicationType.NONE
-    
+
     def get_authors(self):
         return [author.get_author() for author in self.authors]
-    
-    
+
+
 class MovieEditMetadataForm(FlaskForm):
     """Form for minor metadata edits (no new DOI)"""
     title = StringField("Title", validators=[DataRequired(), Length(max=120)])
     desc = TextAreaField("Description", validators=[DataRequired()])
     tags = StringField("Tags (separated by commas)", validators=[DataRequired()]) #Al menos incluir una tag
     authors = FieldList(FormField(AuthorForm), min_entries=1)
-    
+
     edit_comment = TextAreaField(
-        "Edit Comment", 
+        "Edit Comment",
         validators=[Optional(), Length(max=500)],
         description="Optional: Describe what you changed"
     )
-    
+
     submit = SubmitField("Save Changes")
 
     def get_authors(self):
