@@ -1,6 +1,9 @@
 #!/bin/bash
 set -e
 
+echo "webhook" > /app/.moduleignore
+echo "▶ .moduleignore creado"
+
 echo "▶ Running migrations..."
 flask db upgrade
 

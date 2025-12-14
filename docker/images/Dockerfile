@@ -25,9 +25,6 @@ COPY migrations/ ./migrations
 # Copy requirements.txt into the working directory /app
 COPY requirements.txt .
 
-# Copy moduleignore
-COPY .moduleignore .
-
 #Bring rosemary
 COPY rosemary/ ./rosemary
 COPY pyproject.toml .
@@ -45,6 +42,7 @@ RUN pip install --no-cache-dir --upgrade pip
 
 # Install any needed packages specified in requirements.txt
 RUN pip install -r requirements.txt
+
 # Create an empty readme so pyproject does not protest
 RUN touch README.md 
 RUN pip install -e ./
