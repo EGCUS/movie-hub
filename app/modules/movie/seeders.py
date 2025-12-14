@@ -12,6 +12,8 @@ from app.modules.dataset.models import DSMetaData, PublicationType, Author
 from app.modules.featuremodel.models import FeatureModel, FMMetaData
 from app.modules.hubfile.models import Hubfile
 from core.seeders.BaseSeeder import BaseSeeder
+from app.modules.community.models import Community
+
 
 from app.modules.movie.services import MovieService
 movie_service = MovieService()
@@ -21,6 +23,9 @@ class MovieSeeder(BaseSeeder):
     priority = 3
 
     def run(self):
+
+        if MovieDataset.query.join(MovieDataset.ds_meta_data).filter(DSMetaData.dataset_doi.isnot(None)).count() > 0:
+            return
 
         # ==============================
         #  PREPARACIÓN
@@ -36,7 +41,13 @@ class MovieSeeder(BaseSeeder):
         working_dir = os.getenv("WORKING_DIR", "")
         src_folder = os.path.join(working_dir, "app", "modules", "movie", "json_examples")
 
+        ai = Community.query.filter_by(name="Grupo de Investigación en IA").first()
+        ds = Community.query.filter_by(name="Comunidad de Ciencia de Datos").first()
 
+        if not ai or not ds:
+            raise Exception(
+                "Communities not found. Seed CommunitySeeder before MovieSeeder."
+            )
         # ==============================
         #  DATASET 1 — SCI-FI
         # ==============================
@@ -63,7 +74,8 @@ class MovieSeeder(BaseSeeder):
             ds_meta_data_id=scifi_meta.id,
             user_id=user1.id,
             dataset_type="movie",
-            created_at=datetime.now(timezone.utc)
+            created_at=datetime.now(timezone.utc),
+            community_id=ai.id
         )
         db.session.add(scifi_dataset)
         db.session.flush()
@@ -105,7 +117,8 @@ class MovieSeeder(BaseSeeder):
             ds_meta_data_id=tarantino_meta.id,
             user_id=user2.id,
             dataset_type="movie",
-            created_at=datetime.now(timezone.utc)
+            created_at=datetime.now(timezone.utc),
+            community_id=ds.id
         )
         db.session.add(tarantino_dataset)
         db.session.flush()

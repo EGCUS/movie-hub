@@ -12,7 +12,7 @@ class ExploreRepository(BaseRepository):
     def __init__(self):
         super().__init__(MovieDataset)
 
-    def filter(self, query="", sorting="newest", publication_type="any", tags=[], **kwargs):
+    def filter(self, query="", sorting="newest", publication_type="any", tags=[], community_id=None, **kwargs):
         # Normalize and remove unwanted characters
         normalized_query = unidecode.unidecode(query).lower()
         cleaned_query = re.sub(r'[,.":\'()\[\]^;!¡¿?]', "", normalized_query)
@@ -42,9 +42,10 @@ class ExploreRepository(BaseRepository):
             .join(MovieDataset.ds_meta_data)
             .join(DSMetaData.authors)
             .outerjoin(MovieDataset.movies)  # Left join to include datasets without movies
-            .filter(or_(*filters))
             .filter(DSMetaData.dataset_doi.isnot(None))  # Only public datasets
         )
+        if filters:
+            datasets = datasets.filter(or_(*filters))
 
         if publication_type != "any":
             matching_type = None
@@ -59,6 +60,9 @@ class ExploreRepository(BaseRepository):
         if tags:
             datasets = datasets.filter(DSMetaData.tags.ilike(any_(f"%{tag}%" for tag in tags)))
 
+        if community_id:
+            datasets = datasets.filter(MovieDataset.community_id == community_id)  
+            
         datasets = datasets.distinct()
 
         # Order by created_at

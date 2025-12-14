@@ -4,34 +4,37 @@ from core.seeders.BaseSeeder import BaseSeeder
 
 
 class AuthSeeder(BaseSeeder):
-
     priority = 1  # Higher priority
 
     def run(self):
-
-        # Seeding users
-        users = [
-            User(email="user1@example.com", password="1234"),
-            User(email="user2@example.com", password="1234"),
+        # Datos seed
+        users_data = [
+            ("user1@example.com", "1234", ("John", "Doe")),
+            ("user2@example.com", "1234", ("Jane", "Doe")),
         ]
 
-        # Inserted users with their assigned IDs are returned by `self.seed`.
-        seeded_users = self.seed(users)
+        seeded_users = []
 
-        # Create profiles for each user inserted.
-        user_profiles = []
-        names = [("John", "Doe"), ("Jane", "Doe")]
+        # 1) Crear usuarios SOLO si no existen
+        for email, password, _name in users_data:
+            existing_user = User.query.filter_by(email=email).first()
+            if existing_user:
+                seeded_users.append(existing_user)
+            else:
+                new_user = User(email=email, password=password)
+                seeded_users.extend(self.seed([new_user]))  # self.seed devuelve lista
 
-        for user, name in zip(seeded_users, names):
+        # 2) Crear perfiles SOLO si no existen
+        for user, (_email, _password, (name, surname)) in zip(seeded_users, users_data):
+            existing_profile = UserProfile.query.filter_by(user_id=user.id).first()
+            if existing_profile:
+                continue
+
             profile_data = {
                 "user_id": user.id,
                 "orcid": "",
                 "affiliation": "Some University",
-                "name": name[0],
-                "surname": name[1],
+                "name": name,
+                "surname": surname,
             }
-            user_profile = UserProfile(**profile_data)
-            user_profiles.append(user_profile)
-
-        # Seeding user profiles
-        self.seed(user_profiles)
+            self.seed([UserProfile(**profile_data)])

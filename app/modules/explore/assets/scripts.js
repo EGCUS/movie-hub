@@ -1,6 +1,63 @@
 document.addEventListener('DOMContentLoaded', () => {
+    loadCommunities();
     send_query();
 });
+
+function loadCommunities() {
+    fetch('/explore/communities')
+        .then(res => res.json())
+        .then(data => {
+            const select = document.getElementById('community_id');
+            if (!select) return;
+
+            select.innerHTML = '<option value="">Any</option>';
+
+            
+
+
+            data.forEach(c => {
+                const opt = document.createElement('option');
+                opt.value = c.id;
+                opt.textContent = c.name;
+                opt.dataset.logo = c.logo_url || "/static/img/community/default.svg";
+                select.appendChild(opt);
+            });
+            select.dispatchEvent(new Event('input', { bubbles: true }));
+            updateCommunityPreview();
+        });
+}
+
+function updateCommunityPreview() {
+    const select = document.getElementById('community_id');
+    const preview = document.getElementById('community_preview');
+    const logo = document.getElementById('community_logo');
+    const name = document.getElementById('community_name');
+
+    if (!select || !preview || !logo || !name) return;
+
+    const selected = select.options[select.selectedIndex];
+    const logoUrl = selected?.dataset?.logo || "";
+    const communityName = selected?.textContent || "";
+
+    if (!select.value) {
+        preview.style.display = "none";
+        logo.src = "";
+        name.textContent = "";
+        console.log("logoUrl:", logoUrl);
+        return;
+    }
+
+    preview.style.display = "flex";
+    if (logoUrl) {
+        logo.src = logoUrl;
+        logo.style.display = "block";
+    } else {
+        logo.src = "";
+        logo.style.display = "none";
+    }
+    name.textContent = communityName;
+}
+
 
 function send_query() {
 
@@ -14,7 +71,10 @@ function send_query() {
 
     filters.forEach(filter => {
         filter.addEventListener('input', () => {
+            updateCommunityPreview();
             const csrfToken = document.getElementById('csrf_token').value;
+
+            const communityValue = document.querySelector('#community_id')?.value || "";
 
             const searchCriteria = {
                 csrf_token: csrfToken,
@@ -22,6 +82,11 @@ function send_query() {
                 publication_type: document.querySelector('#publication_type').value,
                 sorting: document.querySelector('[name="sorting"]:checked').value,
             };
+
+            if (communityValue) {
+                searchCriteria.community_id = parseInt(communityValue);
+            }
+
 
             console.log(document.querySelector('#publication_type').value);
 
@@ -163,6 +228,11 @@ function clearFilters() {
     let publicationTypeSelect = document.querySelector('#publication_type');
     publicationTypeSelect.value = "any";
 
+    // Reset community
+    let communitySelect = document.querySelector('#community_id');
+    if (communitySelect) communitySelect.value = "";
+    updateCommunityPreview();
+    
     // Reset the sorting option
     let sortingOptions = document.querySelectorAll('[name="sorting"]');
     sortingOptions.forEach(option => {
