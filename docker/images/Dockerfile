@@ -25,18 +25,29 @@ COPY migrations/ ./migrations
 # Copy requirements.txt into the working directory /app
 COPY requirements.txt .
 
+# Copy moduleignore
+COPY .moduleignore .
+
+#Bring rosemary
+COPY rosemary/ ./rosemary
+COPY pyproject.toml .
+
 # Removes cache at the build stage
 RUN find . -type d -name "__pycache__" -exec rm -r {} + && \
     find . -type f -name "*.pyc" -exec rm -f {} +
 
 # Copy the wait-for-db.sh script and set execution permissions
 COPY --chmod=0755 scripts/wait-for-db.sh ./scripts/
+COPY --chmod=0755 scripts/start_container.sh ./scripts/
 
 # Update pip
 RUN pip install --no-cache-dir --upgrade pip
 
 # Install any needed packages specified in requirements.txt
 RUN pip install -r requirements.txt
+# Create an empty readme so pyproject does not protest
+RUN touch README.md 
+RUN pip install -e ./
 
 # Add an argument for version tag
 ARG VERSION_TAG

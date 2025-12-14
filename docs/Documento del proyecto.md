@@ -200,14 +200,45 @@ Dentro de la VM provisionada, Puppet instala Python 3.12, PostgreSQL, dependenci
 
 Opción B — Docker + docker-compose (rápido y portable):
 
-1. Instalar Docker y Docker Compose.
-2. Lanzar los servicios de desarrollo:
+Movie-Hub también ofrece despliegue con **Docker** para entornos de producción y desarrollo, utilizando contenedores para una configuración rápida y reproducible.
 
-```bash
-docker-compose -f docker/docker-compose.dev.yml up --build
+Hay dos cosas que se deben hacer antes de desplegar el contenedor de docker
+- **Docker** y **Docker Compose** instalados en tu sistema
+- **Archivo de variables de entorno** `.env.docker` configurado, para ello se puede tomar el archivo `.env.docker.example` y rellenarlo de la siguiente manera para usar una base de datos autocontenida:
+
+```
+FLASK_ENV=development
+MARIADB_HOSTNAME=db
+MARIADB_PORT=3306
+MARIADB_DATABASE=uvlhubdb
+MARIADB_TEST_DATABASE=uvlhubdb_test
+MARIADB_USER=uvlhubdb_user
+MARIADB_PASSWORD=uvlhubdb_password
+MARIADB_ROOT_PASSWORD=uvlhubdb_root_password
+WORKING_DIR=/app
 ```
 
-Si no hay un `.env` el contenedor puede requerir variables; consulta los archivos de ejemplo y la sección `docker/` del repositorio.
+Para desplegar la versión de producción (rama `main`):
+```bash
+# Levantar los servicios con el perfil main
+docker compose -f docker/docker-compose.yml --profile main up -d
+```
+
+Para desplegar la versión de preview (rama `develop`):
+```bash
+# Levantar los servicios con el perfil develop
+docker compose -f docker-compose.yml --profile develop up -d
+```
+
+Para acceder a la aplicación, dependiendo de qué contenedor esté desplegado:
+- **Producción**: `http://localhost:5002`
+- **Preview**: `http://localhost:5003`
+
+Para limpiarlo todo se puede ejecutar lo siguiente:
+```bash
+docker compose -f docker/docker-compose.yml down -v
+```
+Eso eliminará todos los contenedores, volúmenes y networks relacionados con movie-hub de la máquina local.
 
 Opción C — Local con entorno virtual (para desarrollo directo):
 
