@@ -1,0 +1,44 @@
+x-web: &web_base #Configuracion base
+  env_file:
+    - ../.env.docker
+  depends_on:
+    - db
+  networks:
+    - moviehub_network
+  entrypoint: ["/app/scripts/wait-for-db.sh"]
+  command: ["/app/scripts/start_container.sh"]
+
+services:
+  web_main: #Para levantar el contenedor con el codigo de main
+    <<: *web_base
+    container_name: moviehub_app_main_container
+    image: moviehubuser/movie-hub:latest  
+    ports:
+      - "5002:5000"
+    profiles:
+      - main
+
+  web_develop: #Para levantar el contenedor con el codigo de develop
+    <<: *web_base
+    container_name: moviehub_app_develop_container
+    image: moviehubuser/movie-hub-preview:latest
+    ports:
+      - "5003:5000"
+    profiles:
+      - develop
+
+  db:
+    container_name: moviehub_db_container
+    image: mariadb:12.0.2
+    env_file:
+      - ../.env.docker
+    volumes:
+      - moviehub_db_data:/var/lib/mysql
+    networks:
+      - moviehub_network
+
+volumes:
+  moviehub_db_data:
+
+networks:
+  moviehub_network:
