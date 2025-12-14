@@ -9,6 +9,7 @@ from app import db
 from app.modules.auth.models import User
 from app.modules.movie.models import MovieDataset, Movie
 from app.modules.dataset.models import DSMetaData, PublicationType, Author
+from app.modules.fakenodo.models import Fakenodo
 from app.modules.featuremodel.models import FeatureModel, FMMetaData
 from app.modules.hubfile.models import Hubfile
 from core.seeders.BaseSeeder import BaseSeeder
@@ -133,7 +134,18 @@ class MovieSeeder(BaseSeeder):
 
         db.session.commit()
 
-        # ==============================
+        # Crear registro en Fakenodo para que el dataset pertenezca y tenga estado
+        # (por defecto lo marcamos como 'published' dado que le asignamos dataset_doi)
+        scifi_fakenodo = Fakenodo(
+            status="published",
+            dataset_id=scifi_dataset.id,
+            dataset_file_path=scifi_folder,
+            doi=scifi_meta.dataset_doi
+        )
+        db.session.add(scifi_fakenodo)
+        db.session.commit()
+
+# ==============================
 # VERSIONES SCI-FI
 # ==============================
 
@@ -342,4 +354,88 @@ class MovieSeeder(BaseSeeder):
         db.session.commit()
 
         # Versión única (V1)
+        # Crear registro en Fakenodo para el dataset clásico como DRAFT
+        classic_fakenodo = Fakenodo(
+            status="draft",
+            dataset_id=classic_dataset.id,
+            dataset_file_path=classic_folder,
+            doi=classic_meta.dataset_doi
+        )
+        db.session.add(classic_fakenodo)
+        db.session.commit()
+
         movie_service.create_version(classic_dataset)
+
+        # ==========================================================
+        # DATASET 3 — DOCUMENTARIES (PEQUEÑO, PARA TEST/SEEDS)
+        # ==========================================================
+        doc_meta = DSMetaData(
+            title="Documentary Highlights",
+            description="A small curated set of notable documentaries",
+            publication_type=PublicationType.OTHER,
+            tags="movies,documentary,non-fiction",
+            dataset_doi="10.1234/documentary-2025",
+        )
+        db.session.add(doc_meta)
+        db.session.flush()
+
+        db.session.add(
+            Author(
+                name="Documentary Collective",
+                affiliation="Docs Org",
+                ds_meta_data_id=doc_meta.id
+            )
+        )
+
+        doc_dataset = MovieDataset(
+            ds_meta_data_id=doc_meta.id,
+            user_id=user2.id,
+            dataset_type="movie",
+            created_at=datetime.now(timezone.utc)
+        )
+        db.session.add(doc_dataset)
+        db.session.flush()
+
+        # Añadir una película de ejemplo
+        db.session.add(
+            Movie(
+                movie_dataset_id=doc_dataset.id,
+                logical_id=generate_logical_id({"title": "Planet Earth", "year": 2006, "director": "Alastair Fothergill"}),
+                title="Planet Earth",
+                year=2006,
+                director="Alastair Fothergill",
+                genre="Documentary",
+            )
+        )
+
+        db.session.commit()
+
+        # Crear carpeta uploads vacía para el dataset3 (no necesitamos archivos)
+        doc_folder = os.path.join(
+            working_dir,
+            "uploads",
+            f"user_{doc_dataset.user_id}",
+            f"dataset_{doc_dataset.id}"
+        )
+        os.makedirs(doc_folder, exist_ok=True)
+
+        # Crear carpeta uploads vacía para el dataset3 (no necesitamos archivos)
+        doc_folder = os.path.join(
+            working_dir,
+            "uploads",
+            f"user_{doc_dataset.user_id}",
+            f"dataset_{doc_dataset.id}"
+        )
+        os.makedirs(doc_folder, exist_ok=True)
+
+        # Publicar este dataset creando un registro Fakenodo (status=published)
+        doc_fakenodo = Fakenodo(
+            status="published",
+            dataset_id=doc_dataset.id,
+            dataset_file_path=doc_folder,
+            doi=doc_meta.dataset_doi
+        )
+        db.session.add(doc_fakenodo)
+        db.session.commit()
+
+        movie_service.create_version(doc_dataset)

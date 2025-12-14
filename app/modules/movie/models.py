@@ -189,6 +189,8 @@ class MovieDataset(BaseDataset):
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "movies_count": self.get_movies_count(),
             "movies": [movie.to_dict() for movie in self.movies],
+            # Agregar tamaño legible para que la API JSON lo exponga al frontend
+            "get_file_total_size_for_human": self.get_file_total_size_for_human(),
         }
     
     def __repr__(self):

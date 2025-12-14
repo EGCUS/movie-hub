@@ -4,6 +4,7 @@ import unidecode
 from sqlalchemy import any_, or_
 
 from app.modules.dataset.models import Author, DSMetaData, PublicationType
+from app.modules.fakenodo.models import Fakenodo
 from app.modules.movie.models import MovieDataset, Movie
 from core.repositories.BaseRepository import BaseRepository
 
@@ -41,9 +42,12 @@ class ExploreRepository(BaseRepository):
             MovieDataset.query
             .join(MovieDataset.ds_meta_data)
             .join(DSMetaData.authors)
+            # Join con Fakenodo para filtrar solo los datasets publicados
+            .join(Fakenodo, Fakenodo.dataset_id == MovieDataset.id)
             .outerjoin(MovieDataset.movies)  # Left join to include datasets without movies
             .filter(or_(*filters))
             .filter(DSMetaData.dataset_doi.isnot(None))  # Only public datasets
+            .filter(Fakenodo.status == "published")
         )
 
         if publication_type != "any":
