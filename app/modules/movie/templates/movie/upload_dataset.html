@@ -55,6 +55,9 @@
     .toast-notification i {
         margin-right: 10px;
     }
+    .toast-notification.error {
+        background: #dc3545; /* red */
+    }
 </style>
 {% endblock %}
 
@@ -65,6 +68,13 @@
     <i data-feather="check-circle"></i>
     <span id="toastMessage">Dataset uploaded successfully!</span>
 </div>
+<!-- Error Toast -->
+<div id="errorToast" class="toast-notification error">
+    <i data-feather="x-circle"></i>
+    <span id="errorToastMessage">There was an error</span>
+</div>
+<!-- Server flashes (hidden) -->
+<div id="server-flashes" data-flashes='{{ get_flashed_messages(with_categories=true) | tojson | safe }}' style="display:none"></div>
 
 <h1 class="h2 mb-3"><b>Upload</b> Movie Dataset</h1>
 
@@ -289,8 +299,35 @@
 <script>
     let authorCount = {{ form.authors.entries|length if form.authors.entries else 1 }};
 
+    // Mensajes flash del servidor (category, message) expuestos en data attribute
+    // El div #server-flashes se añade en el HTML para evitar inyectar Jinja directamente en JS
+    const serverFlashes = (function(){
+        const el = document.getElementById('server-flashes');
+        if (!el) return [];
+        try {
+            return JSON.parse(el.dataset.flashes || '[]');
+        } catch (e) {
+            return [];
+        }
+    })();
+
     document.addEventListener('DOMContentLoaded', function () {
         feather.replace();
+        // Mostrar toasts enviados desde la ruta (flashes)
+        if (Array.isArray(serverFlashes) && serverFlashes.length > 0) {
+            serverFlashes.forEach(f => {
+                const category = f[0] || 'message';
+                const msg = f[1] || '';
+                if (category === 'error' || category === 'danger') {
+                    showErrorToast(msg);
+                } else if (category === 'success') {
+                    showSuccessToast(msg);
+                } else {
+                    // default to error for unknown categories
+                    showErrorToast(msg);
+                }
+            });
+        }
         
         // Preview del archivo seleccionado
         const fileInput = document.getElementById('fileInput');
@@ -301,32 +338,72 @@
             fileInput.addEventListener('change', function() {
                 if (this.files && this.files.length > 0) {
                     fileList.innerHTML = '';
-                    let hasErrors = false;
-                    
-                    Array.from(this.files).forEach((file, index) => {
+
+                    const files = Array.from(this.files);
+                    let sizeError = false;
+                    let jsonError = false;
+
+                    // Mostrar info de tamaño y preparar lectura JSON
+                    files.forEach((file, index) => {
                         const fileInfo = document.createElement('div');
                         fileInfo.className = 'mb-1';
-                        
-                        // Validar tamaño (10MB máximo)
+
                         if (file.size > 10 * 1024 * 1024) {
                             fileInfo.innerHTML = `<span class="text-danger">${file.name} – ${formatBytes(file.size)} (exceeds 10MB limit)</span>`;
-                            hasErrors = true;
+                            sizeError = true;
                         } else {
                             fileInfo.innerHTML = `${index + 1}. ${file.name} – ${formatBytes(file.size)}`;
                         }
-                        
+
                         fileList.appendChild(fileInfo);
                     });
-                    
+
                     filePreview.classList.remove('d-none');
-                    
-                    if (hasErrors) {
-                        alert('One or more files exceed the 10MB limit. Please remove them and select smaller files.');
-                        this.value = '';
-                        filePreview.classList.add('d-none');
+
+                    if (sizeError) {
+                        showErrorToast('One or more files exceed the 10MB limit. Please remove them and select smaller files.');
+                        disableSubmitButtons(true);
+                        return;
                     }
+
+                    // Validar JSON de los ficheros .json
+                    const readPromises = files.map(file => {
+                        return new Promise((resolve) => {
+                            const ext = (file.name.split('.').pop() || '').toLowerCase();
+                            if (ext !== 'json') {
+                                return resolve({file, valid: true});
+                            }
+
+                            const reader = new FileReader();
+                            reader.onload = () => {
+                                try {
+                                    JSON.parse(reader.result);
+                                    resolve({file, valid: true});
+                                } catch (e) {
+                                    resolve({file, valid: false, error: e.message});
+                                }
+                            };
+                            reader.onerror = () => resolve({file, valid: false, error: 'Could not read file'});
+                            reader.readAsText(file);
+                        });
+                    });
+
+                    Promise.all(readPromises).then(results => {
+                        const invalid = results.filter(r => !r.valid);
+                        if (invalid.length > 0) {
+                            jsonError = true;
+                            const names = invalid.map(i => i.file.name).join(', ');
+                            showErrorToast(`Invalid JSON format detected in: ${names}. Please fix the files and try again.`);
+                            disableSubmitButtons(true);
+                        } else {
+                            // All good
+                            disableSubmitButtons(false);
+                        }
+                    });
+
                 } else {
                     filePreview.classList.add('d-none');
+                    disableSubmitButtons(false);
                 }
             });
         }
@@ -357,8 +434,29 @@
         
         toastMessage.textContent = message;
         toast.classList.add('show');
+        // hide error toast if visible
+        const err = document.getElementById('errorToast');
+        if (err) err.classList.remove('show');
         
         feather.replace();
+    }
+
+    function showErrorToast(message) {
+        const toast = document.getElementById('errorToast');
+        const toastMessage = document.getElementById('errorToastMessage');
+        toastMessage.textContent = message;
+        toast.classList.add('show');
+        // hide success toast if visible
+        const s = document.getElementById('successToast');
+        if (s) s.classList.remove('show');
+        feather.replace();
+    }
+
+    function disableSubmitButtons(disable) {
+        const draftBtn = document.getElementById('draft_btn');
+        const publishBtn = document.getElementById('publish_btn');
+        if (draftBtn) draftBtn.disabled = disable;
+        if (publishBtn) publishBtn.disabled = disable;
     }
 
     function formatBytes(bytes, decimals = 2) {
