@@ -550,4 +550,8 @@ En conjunto, se consiguió entregar la funcionalidad a tiempo, cubrirla con prue
 
 ## Conclusión final
 
-Durante este período, a pesar del malentendido inicial y de la implementación del atributo "público" un tanto innecesario, he conseguido implementar las funcionalidade básicas que el WI requeria junto con la realización de pruebas tanto unitarias como de interfaz con Selenium.
+Durante este período, los integrantes de movie-hub han sabido trabajar en equipo correctamente la mayor parte del tiempo, aspecto positivo teniendo en cuenta que varios de ellos no habían trabajado previamente con los demás.
+
+Por otra parte, aunque se ha entregado todo correctamente a tiempo, se podría haber mejorado internamente la gestión del tiempo de cada entregable, ya que sobre todo al principio se fue un poco apurado quedándose algunas issues bastante tiempo registradas sin llegar a empezarse. Sin embargo, pese a ese detalle, todo se entregó a tiempo y de forma correcta.
+
+Finalmente, como balance general, consideramos que ha sido un buen proyecto en equipo al haber entregado todo como se había previsto desde un inicio, sin retrasos importantes y con una buena metodología de trabajo.
