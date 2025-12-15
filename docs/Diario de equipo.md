@@ -290,15 +290,71 @@ Pese a ser un WI de dificultad baja, ha habido varios problemas debido a una mal
 
 
 ## Alejandro Carmona Reina
+En el proyecto, me he encargado del **WI Minor versioning (minor edition of datasets) #84**.
 
-### WI Asignado
+Para realizar dicho WI, he implementado varias funciones en movieService que permiten editar los metadatos, autores y comunidades, de manera que los cambios queden registrados en un changelog sin que se produzca nuevo DOI. Se pueden consultar dichos cambios en la pantalla propia para changelog, donde de pueden los diferentes tipos de modificaciones y el tipo (editar, añadir o borrar). He precisado también de realizar un form para editar los metadatos del MovieDataset, donde además, he implementado una serie de validaciones para el ORCID y el autor que subió el dataset (este NO puede ser editado).
 
+### Implementación de Upload y Fakenodo
+
+He desarrollado la integración completa del sistema de upload con Fakenodo (mock de Zenodo), implementando dos flujos diferenciados:
+
+1. **Upload como Draft**: Mediante `upload_draft_dataset()` en `MovieService`, el dataset se crea localmente y en Fakenodo con estado "draft", permitiendo al usuario revisar antes de publicar. El método crea el dataset, procesa los archivos JSON, genera el modelo de datos y sube los archivos a Fakenodo mediante `FakenodoAdapter`.
+
+2. **Upload y Publish directo**: Con `upload_and_publish_dataset()`, el sistema ejecuta el flujo completo de creación y publicación inmediata, llamando internamente a `upload_draft_dataset()` seguido de `publish_fakenodo()` para asignar el DOI y cambiar el estado a "published".
+
+He implementado `FakenodoAdapter` (`app/modules/fakenodo/adapter.py`) que actúa como capa de abstracción, permitiendo llamar directamente al servicio o a través de rutas HTTP según convenga. También corregí la ruta de subida de archivos a Fakenodo (`/fakenodo/upload/<int:fakenodo_id>`) para manejar correctamente el contenido binario y la validación de integridad mediante checksums MD5.
+
+### Desarrollo de Interfaces
+
+He contribuido significativamente en el desarrollo de las interfaces del módulo movie, implementando:
+
+- **Carrusel 3D de películas** (`view_dataset.html`): Sistema interactivo con perspectiva 3D, posiciones calculadas dinámicamente, navegación por teclado y mouse, y animaciones suaves usando transiciones CSS3. El carrusel muestra hasta 5 películas simultáneamente con rotación Y y escalado según posición.
+
+- **Pantallas dinámicas**: `list_datasets.html` con sistema de tarjetas responsivo, `manage_dataset.html` con opciones de gestión para propietarios, `upload_dataset.html` con validación de JSON en tiempo real y soporte multi-archivo, `edit_dataset.html` con gestión dinámica de autores y validaciones ORCID.
+
+- **Changelog visual** (`changelog.html`): Timeline vertical con markers de colores según tipo de cambio (metadata: azul, autores: amarillo, comunidad: púrpura), diferenciación visual de elementos añadidos/eliminados con bordes verdes/rojos, y resumen estadístico de ediciones totales.
+
+Además he contribuido también en `view_movie.html`
 ### Pruebas Realizadas
+
+He desarrollado un conjunto completo de pruebas para garantizar la calidad del código:
+
+1) **Pruebas unitarias** (`app/modules/movie/tests/test_unit.py`) — 15+ pruebas:
+   - Tests de rutas GET/POST para la un gran porcentaje de los endpoints del módulo movie
+   - Verificación de redirecciones, autenticación y permisos
+   - Tests específicos de changelog: `test_view_changelog()`, `test_api_changelog()`
+   - Tests de edición: `test_edit_dataset_metadata_get()`, `test_edit_dataset_metadata_post()`, `test_edit_dataset_metadata_forbidden()`
+   - Tests de upload: `test_upload_dataset_as_draft()`, `test_upload_dataset_and_publish()`, `test_upload_dataset_validation_error()`
+   - Tests de publicación: `test_publish_dataset_success()`, `test_publish_dataset_forbidden()`, `test_publish_dataset_no_fakenodo()`
+
+2) **Pruebas Selenium** (`app/modules/movie/tests/test_selenium_upload_and_edit_metadata.py`) — 1 test completo:
+   - `test_upload_draft_and_publish_plus_direct_publish()`: Test end-to-end que verifica login, upload como draft, publicación del draft, upload y publish directo, doble edición de metadata y verificación del changelog completo
+
+3) **Pruebas Locust** (`app/modules/movie/tests/locustfile.py`) — 10+ escenarios:
+   - `upload_dataset_as_draft()`: Simula subida de datasets con action=draft
+   - `upload_and_publish_directly()`: Test de publicación directa con action=publish
+   - `publish_existing_draft()`: Publicación de drafts existentes
+   - `upload_multiple_files()`: Test con múltiples archivos JSON
+   - `compare_versions_json()`, `compare_versions_view()`: Tests de comparación de versiones
+   - `edit_dataset_metadata()`, `view_changelog()`: Tests de edición y changelog
 
 ### Workflows Implementados
 
+He contribuido en la configuración de workflows de CI/CD:
+
+1) feature-branch.yml (creador): Workflow principal para ramas temporales que valida mensajes de commit según convención (feat/fix/test/docs) y orquesta la ejecución paralela de otros workflows. Implementa verificación de formato de commit con regex y manejo de errores con mensajes descriptivos.
+
+2) release.yml (pequeña contribución): Workflow de releases automáticos usando semantic-release. Se activa en push a main con commits de tipo "chore(release)", genera versiones semánticas según commits convencionales, crea changelog automático y publica releases en GitHub con notas generadas.
+
 ### Conclusión
 
+Durante mi participación en el proyecto movie-hub, he contribuido principalmente en cuatro áreas clave: versionado menor de datasets, integración con Fakenodo, desarrollo de interfaces y testing exhaustivo.
+
+El work item de minor versioning implementado permite la evolución controlada de datasets sin proliferación de DOIs, manteniendo trazabilidad completa mediante un sistema de changelog visual. La integración con Fakenodo establece un flujo completo de publicación con dos modalidades (draft y publish directo), facilitando la gestión del ciclo de vida de los datasets.
+
+El desarrollo de interfaces con componentes dinámicos como el carrusel 3D de películas y las pantallas de edición con validaciones en tiempo real mejora significativamente la experiencia de usuario. Junto a mis compañeros Darío Román Jiménez y Samuel Granado Oliva, participé en la refactorización de la clase **BaseDataset** que permitió la extensibilidad del sistema.
+
+Finalmente, la implementación de pruebas unitarias, Selenium y Locust, junto con los workflows de CI/CD, garantiza la estabilidad del sistema y automatiza procesos críticos de testing y despliegue. Estas contribuciones han fortalecido tanto la funcionalidad como la calidad técnica del proyecto, estableciendo bases sólidas para su evolución futura.
 
 ## Samuel Granado Oliva
 
