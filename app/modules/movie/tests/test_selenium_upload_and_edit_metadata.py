@@ -88,7 +88,7 @@ class TestDefaultSuite:
         self.safe_send_keys(By.ID, "desc", "Dataset de prueba", clear_first=False)
         self.safe_send_keys(By.ID, "publication_doi", "10.1234/example15", clear_first=False)
         self.safe_send_keys(By.ID, "tags", "movie", clear_first=False)
-        self.safe_send_keys(By.ID, "authors-0-orcid", "0000-0000-0000", clear_first=False)
+        self.safe_send_keys(By.ID, "authors-0-orcid", "0000-0000-0000-0000", clear_first=False)
         
         file_input = self.driver.find_element(By.ID, "fileInput")
         file_input.send_keys(self.test_json_file)
@@ -127,7 +127,7 @@ class TestDefaultSuite:
         self.safe_send_keys(By.ID, "desc", "Upload y Publish directo", clear_first=False)
         self.safe_send_keys(By.ID, "publication_doi", "10.1234/example25", clear_first=False)
         self.safe_send_keys(By.ID, "tags", "cinema", clear_first=False)
-        self.safe_send_keys(By.ID, "authors-0-orcid", "0000-0000-0000", clear_first=False)
+        self.safe_send_keys(By.ID, "authors-0-orcid", "0000-0000-0000-0000", clear_first=False)
         
         file_input = self.driver.find_element(By.ID, "fileInput")
         file_input.send_keys(self.test_json_file)
