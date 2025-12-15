@@ -15,7 +15,7 @@ Miembro del equipo  | Horas | Commits | LoC | Test | Issues | Work Item| Dificul
 [Granado Oliva, Samuel](https://github.com/SamuelGRA) | 65 | 44 | +2950/-1793 | 7 | 32 | Limitar los intentos fallidos de inicio de sesión para evitar ataques de fuerza bruta | L |
 [Lavado Corredera, Manuel](https://github.com/60Manu82) | 30 | 10 | +975/-256 | 17 | 6 | Filtrado de los resultados de búsqueda por comunidad, para centrarse en conjuntos de datos de un tema o institución específicos | M |
 [Román Jiménez, Darío](https://github.com/DarioRJ17) | 65 | 28 | +2324/-983 | 30 | 23 | Una clasificación de los datasets más vistos o descargados recientemente para descubrir qué es popular en la plataforma | M |
-**TOTAL** | 250  | 147 | +17245/-6859 | 112 | 90 | Se han realizado 8 work items en total, 2 de cada dificultad. Además de los 2 work items obligatorios, fakenodo y newdataset | H(2)/M(2)/L(2) |
+**TOTAL** | 340  | 147 | +17245/-6859 | 112 | 90 | Se han realizado 8 work items en total, 2 de cada dificultad. Además de los 2 work items obligatorios, fakenodo y newdataset | H(2)/M(2)/L(2) |
 
 ## Integración con otros equipos
 No aplica (equipo single).
