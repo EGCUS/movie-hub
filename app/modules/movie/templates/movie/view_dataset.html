@@ -225,6 +225,18 @@
 {% endblock %}
 
 {% block content %}
+<div class="container mt-4">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ 'danger' if category == 'error' else 'warning' if category == 'warning' else 'success' if category == 'success' else 'info' }} alert-dismissible fade show">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+</div>
 
 <div class="row mb-3">
     <div class="col-6">
@@ -308,7 +320,8 @@
         </div>
         {% endif %}
         <div class="row mb-3 mt-4">
-            <div class="col-12">
+        <div class="col-12">
+            {% if dataset.is_published() %}
                 <a href="{{ url_for('movie.download_dataset', dataset_id=dataset.id) }}" class="btn btn-success" style="border-radius: 5px;">
                     <i data-feather="download"></i>
                     Download Dataset ({{ dataset.get_file_total_size_for_human() }})
@@ -318,8 +331,19 @@
                     <i data-feather="git-merge"></i>
                     Compare Versions
                 </a>
-            </div>
+            {% else %}
+                <div class="alert alert-warning" role="alert">
+                    <i data-feather="alert-circle"></i>
+                    <strong>Dataset not published yet.</strong> 
+                    {% if current_user.is_authenticated and current_user.id == dataset.user_id %}
+                        Go to <a href="{{ url_for('movie.my_datasets') }}">My Datasets</a> to publish it.
+                    {% else %}
+                        This dataset is not available for download yet.
+                    {% endif %}
+                </div>
+            {% endif %}
         </div>
+    </div>
     </div>
     
     {% if dataset.ds_meta_data.dataset_doi %}
@@ -462,12 +486,18 @@
                             <small class="text-muted ms-4">({{ file.get_formatted_size() }})</small>
                         </div>
                         <div class="col-md-4 col-12 text-end">
-                            <button onclick="viewFile('{{ file.id }}')" class="btn btn-outline-secondary btn-sm" style="border-radius: 5px;">
-                                <i data-feather="eye"></i> View
-                            </button>
-                            <a href="{{ url_for('hubfile.download_file', file_id=file.id) }}" class="btn btn-primary btn-sm" style="border-radius: 5px;">
-                                <i data-feather="download"></i> Download
-                            </a>
+                            {% if dataset.is_published() %}
+                                <button onclick="viewFile('{{ file.id }}')" class="btn btn-outline-secondary btn-sm" style="border-radius: 5px;">
+                                    <i data-feather="eye"></i> View
+                                </button>
+                                <a href="{{ url_for('hubfile.download_file', file_id=file.id) }}" class="btn btn-primary btn-sm" style="border-radius: 5px;">
+                                    <i data-feather="download"></i> Download
+                                </a>
+                            {% else %}
+                                <button class="btn btn-outline-secondary btn-sm" disabled style="border-radius: 5px;">
+                                    <i data-feather="lock"></i> Not available
+                                </button>
+                            {% endif %}
                         </div>
                     </div>
                 </div>
