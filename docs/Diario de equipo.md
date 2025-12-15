@@ -280,13 +280,81 @@ Pese a ser un WI de dificultad baja, ha habido varios problemas debido a una mal
 
 ## Manuel Zoilo Buzón Muñoz
 
+## Manuel Zoilo Buzón Muñoz
+
 ### WI Asignado
+
+En el proyecto, me he encargado principalmente del **WI Differences between versions (comparación entre versiones de datasets)**.
+
+Este work item tiene como objetivo permitir la comparación clara y estructurada entre distintas versiones de un mismo dataset de películas, facilitando al usuario la identificación de cambios introducidos entre versiones. Para ello, se implementó un sistema capaz de detectar y mostrar diferencias tanto a nivel de **metadatos** como de **contenido interno del dataset**, incluyendo películas añadidas, eliminadas o modificadas.
+
+La funcionalidad permite seleccionar dos versiones de un mismo dataset y obtener un resultado estructurado que distingue entre:
+- Cambios en metadatos.
+- Películas añadidas.
+- Películas eliminadas.
+- Películas modificadas.
+
+La lógica principal de comparación se implementó en el servicio `MovieService`, concretamente en el método `compare_version_ids()`, el cual carga ambas versiones del dataset y realiza una comparación exhaustiva de sus elementos, devolviendo un diccionario de diferencias que es utilizado tanto por vistas HTML como por endpoints específicos de comparación.
+
+Esta funcionalidad resulta clave para el control de la evolución de los datasets y la trazabilidad de los cambios entre versiones.
 
 ### Pruebas Realizadas
 
+En total: **pruebas unitarias del servicio de comparación, pruebas de interfaz con Selenium y escenarios de carga con Locust**, centradas específicamente en el WI de comparación de versiones.
+
+Resumen de las pruebas creadas y ejecutadas:
+
+#### 1) Pruebas unitarias (`app/modules/movie/tests/test_unit.py`) — 2 pruebas
+
+- `test_compare_version_ids_detects_changes`  
+  Verifica el correcto funcionamiento del método `compare_version_ids()`, comprobando:
+  - Detección de cambios en metadatos entre versiones.
+  - Identificación de películas añadidas entre dos versiones distintas.
+  - Estructura correcta del resultado devuelto por el servicio.
+
+- `test_compare_versions_page_renders`  
+  Comprueba que la página de selección de versiones (`/moviedataset/<id>/versions`) se renderiza correctamente y muestra el mensaje esperado para seleccionar dos versiones a comparar.
+
+#### 2) Pruebas Selenium (`app/modules/movie/tests/test_selenium.py`) — 2 pruebas
+
+- `test_open_versions_selector`  
+  Verifica que desde la vista de un dataset se puede acceder correctamente al selector de versiones.
+
+- `test_compare_without_selection`  
+  Comprueba el comportamiento de la interfaz cuando el usuario intenta comparar versiones sin haber seleccionado dos versiones válidas, validando que se muestra una alerta informativa.
+
+Estas pruebas validan el flujo completo de usuario para la comparación de versiones desde la interfaz web.
+
+#### 3) Pruebas de carga con Locust (`app/modules/movie/tests/locustfile.py`) — 2 escenarios
+
+- `compare_versions_json`  
+  Simula accesos concurrentes al endpoint de comparación de versiones en formato JSON (`/moviedataset/version/<v1>/compare/<v2>`).
+
+- `compare_versions_view`  
+  Simula accesos concurrentes a la vista HTML de comparación de versiones (`/moviedataset/version/<v1>/compare/<v2>/view`).
+
+Estos escenarios permiten evaluar el comportamiento del sistema bajo carga en una funcionalidad clave del proyecto.
+
 ### Workflows Implementados
 
+He participado en la automatización del proyecto mediante la creación y mantenimiento de workflows de CI/CD, destacando:
+
+- **dockerhub_main.yml** (creador original): workflow encargado de construir y publicar automáticamente la imagen Docker del proyecto para la rama `main`.  
+  Este workflow:
+  - Se activa en cada push a `main`.
+  - Construye la imagen Docker del proyecto.
+  - Publica la imagen en Docker Hub con las etiquetas `latest` y el hash del commit.
+  - Facilita el despliegue automático del sistema en entornos de producción.
+
+Además, he colaborado en ajustes menores de workflows existentes para garantizar la correcta integración del WI dentro del pipeline de integración continua.
+
 ### Conclusión
+
+Durante mi participación en el proyecto movie-hub, he contribuido principalmente a la implementación del sistema de **comparación entre versiones de datasets**, una funcionalidad clave para el control de cambios y la trazabilidad del contenido publicado en la plataforma.
+
+El work item desarrollado permite identificar de forma clara y estructurada las diferencias entre dos versiones de un mismo dataset, tanto a nivel de metadatos como de contenido interno, ofreciendo soporte tanto en formato JSON como en vistas HTML. Las pruebas unitarias, de interfaz y de carga garantizan la estabilidad y fiabilidad de esta funcionalidad.
+
+Estas aportaciones han reforzado la calidad técnica del proyecto y han establecido una base sólida para la evolución futura del sistema.
 
 
 ## Alejandro Carmona Reina
