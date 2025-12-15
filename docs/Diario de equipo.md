@@ -482,11 +482,63 @@ Durante mi participación en el proyecto movie-hub, he contribuido principalment
 
 ### WI Asignado
 
+En el proyecto, me he encargado del **WI Exploration by communities #99**.
+
+Este work item consistió en ampliar las funcionalidades de exploración de datasets permitiendo filtrar los resultados por comunidad.
+
+Además, fue **necesario modificar el proceso de upload de datasets** para permitir que los datasets pudiesen asociarse a una o varias comunidades en el momento de su creación, garantizando así que el filtrado por comunidades funcionase correctamente desde el primer momento.
+
+Se añadió un filtro específico en la vista de exploración que permite:
+
+   - Seleccionar una comunidad concreta.
+   - Mostrar únicamente los datasets asociados a dicha comunidad.
+   - Mejorar la experiencia de navegación y descubrimiento de contenido.
+
 ### Pruebas Realizadas
+
+En total: **12 pruebas unitarias y 3 pruebas Selenium**.
+
+#### 1) Pruebas unitarias — 12 pruebas
+
+1. `app/modules/community/tests/test_unit.py` — **1 prueba**
+   - `test_api_list_communities_returns_json`: valida que el endpoint `/api/communities` devuelve correctamente la lista de comunidades en formato JSON.
+
+2. `app/modules/explore/tests/test_unit.py` — **5 pruebas**
+   - `test_explore_get_renders_page`: verifica que el GET `/explore` renderiza la página correctamente.
+   - `test_explore_communities_returns_empty_list`: comprueba que `/explore/communities` devuelve lista vacía cuando no hay comunidades.
+   - `test_explore_communities_returns_json`: valida estructura y contenido del JSON devuelto por `/explore/communities`.
+   - `test_explore_post_calls_filter_with_community_id`: asegura que el POST `/explore` llama al servicio de filtrado pasando `community_id` correctamente.
+   - `test_explore_post_includes_dataset_url`: comprueba que la respuesta del filtro incluye el campo `url` apuntando a `/moviedataset/<id>`.
+
+3. `app/modules/movie/tests/test_unit.py` — **6 pruebas**
+   - `test_upload_dataset_with_existing_community_id`: valida que el upload como draft respeta una `community_id` existente.
+   - `test_upload_dataset_creates_new_community_without_logo`: crea una nueva comunidad sin logo y comprueba que el dataset se asocia a ella.
+   - `test_upload_dataset_new_name_uses_existing_community`: si `new_community_name` existe, reutiliza la comunidad y no crea una nueva.
+   - `test_upload_dataset_existing_name_ignores_logo`: si el nombre existe, ignora el logo y evita operaciones de filesystem.
+   - `test_upload_dataset_new_community_saves_logo`: comprueba que al crear comunidad nueva con logo se genera y guarda el nombre esperado (`community_<uuid>.png`) y se asocia correctamente.
+
+#### 2) Pruebas Selenium — 3 pruebas
+
+1. `app/modules/explore/tests/test_selenium.py` — **1 prueba**
+   - `test_explore_filter_by_text`: valida que la página de exploración carga resultados y que el filtrado reduce/ajusta los resultados visibles en la interfaz.
+
+2. `app/modules/movie/tests/test_selenium_community.py` — **2 pruebas**
+   - `test_upload_form_shows_community_fields`: comprueba que el formulario de upload muestra los campos de comunidad (selector, nombre y logo).
+   - `test_upload_creates_new_community_draft`: flujo completo de login + upload como draft creando una comunidad nueva, aceptando términos, subiendo JSON y verificando redirección con `success=true`.
+
 
 ### Workflows Implementados
 
 ### Conclusión
+
+Durante mi participación en el proyecto movie-hub, he contribuido principalmente a la implementación de la funcionalidad de **exploración de datasets por comunidades**, ampliando las capacidades de búsqueda y organización del contenido dentro de la plataforma.
+
+El work item desarrollado permite filtrar los resultados de exploración en función de la comunidad seleccionada, facilitando la localización de datasets relacionados con un contexto concreto. Además, se ha extendido el flujo de upload para permitir asociar un dataset a una comunidad existente o crear una nueva comunidad directamente durante la subida, con soporte opcional de logotipos.
+
+Las pruebas unitarias y de interfaz desarrolladas garantizan el correcto funcionamiento del filtrado por comunidades, la gestión de comunidades en el upload y la integración de estas funcionalidades en la experiencia de usuario.
+
+Estas aportaciones han mejorado la usabilidad del sistema y han reforzado la calidad y extensibilidad del proyecto, sentando una base sólida para futuras mejoras relacionadas con la organización y exploración de datasets.
+
 
 
 ## Darío Román Jiménez
