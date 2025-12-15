@@ -8,12 +8,12 @@
 
 | Miembro                                                           | Implicación |
 | ----------------------------------------------------------------- | ----------- |
-| [Adame Mantecón, Manuel](https://github.com/ManuelAdame)          | -         |
-| [Buzón Muñoz, Manuel Zoilo](https://github.com/manumnzz)          | -         |
-| [Carmona Reina, Alejandro](https://github.com/aleecar04)          | -        |
-| [Granado Oliva, Samuel](https://github.com/SamuelGRA)             | -         |
-| [Lavado Corredera, Manuel](https://github.com/60Manu82)           | -         |
-| [Román Jiménez, Darío](https://github.com/DarioRJ17)              | -        |
+| [Adame Mantecón, Manuel](https://github.com/ManuelAdame)          | 6.5         |
+| [Buzón Muñoz, Manuel Zoilo](https://github.com/manumnzz)          | 7.5         |
+| [Carmona Reina, Alejandro](https://github.com/aleecar04)          | 10        |
+| [Granado Oliva, Samuel](https://github.com/SamuelGRA)             | 10         |
+| [Lavado Corredera, Manuel](https://github.com/60Manu82)           | 7         |
+| [Román Jiménez, Darío](https://github.com/DarioRJ17)              | 10        |
 
 ## Enlaces de interés:
 
