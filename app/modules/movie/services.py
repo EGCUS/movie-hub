@@ -391,10 +391,18 @@ class MovieService(BaseService):
         v2 = {m.logical_id: m for m in v2_dataset.movies}
 
         for lid in (v2.keys() - v1.keys()):
-            result["movies_added"].append({"logical_id": lid})
+            movie = v2[lid]
+            result["movies_added"].append({
+                "logical_id": lid,
+                "title": movie.title
+            })
 
         for lid in (v1.keys() - v2.keys()):
-            result["movies_removed"].append({"logical_id": lid})
+            movie = v1[lid]
+            result["movies_removed"].append({
+                "logical_id": lid,
+                "title": movie.title
+            })
 
         for lid in v1.keys() & v2.keys():
             diffs = {}
@@ -405,7 +413,11 @@ class MovieService(BaseService):
                         "new": getattr(v2[lid], f, None),
                     }
             if diffs:
-                result["movies_modified"].append({"logical_id": lid, "changes": diffs})
+                result["movies_modified"].append({
+                    "logical_id": lid,
+                    "title": v2[lid].title, 
+                    "changes": diffs
+                })
 
         # ✅ FILES (desde snapshot, NO BD)
         result["files"] = self.compare_files_between_versions(v1_dataset, v2_dataset)
