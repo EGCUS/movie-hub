@@ -51,7 +51,6 @@
                 <p class="text-muted">No files removed.</p>
             {% endif %}
 
-
             <h5 class="mt-3">✏️ Modified files</h5>
             {% if comparison.files.files_modified %}
                 <ul>
@@ -69,13 +68,10 @@
                             </small>
                         </li>
                     {% endfor %}
-
                 </ul>
             {% else %}
                 <p class="text-muted">No files modified.</p>
             {% endif %}
-
-
 
         </div>
     </div>
@@ -125,7 +121,12 @@
             {% if comparison.movies_added %}
                 <ul>
                     {% for movie in comparison.movies_added %}
-                        <li><strong>{{ movie["logical_id"] }}</strong></li>
+                        <li>
+                            <strong>{{ movie.title }}</strong>
+                            <small class="text-muted">
+                                ({{ movie.logical_id[:8] }})
+                            </small>
+                        </li>
                     {% endfor %}
                 </ul>
             {% else %}
@@ -145,7 +146,12 @@
             {% if comparison.movies_removed %}
                 <ul>
                     {% for movie in comparison.movies_removed %}
-                        <li><strong>{{ movie["logical_id"] }}</strong></li>
+                        <li>
+                            <strong>{{ movie.title }}</strong>
+                            <small class="text-muted">
+                                ({{ movie.logical_id[:8] }})
+                            </small>
+                        </li>
                     {% endfor %}
                 </ul>
             {% else %}
@@ -167,7 +173,10 @@
                 {% for item in comparison.movies_modified %}
                     <div class="border rounded p-3 mb-3">
                         <h5 class="mb-2">
-                            Logical ID: {{ item["logical_id"] }}
+                            {{ item.title }}
+                            <small class="text-muted">
+                                ({{ item.logical_id[:8] }})
+                            </small>
                         </h5>
 
                         <table class="table table-bordered">
@@ -179,11 +188,11 @@
                                 </tr>
                             </thead>
                             <tbody>
-                            {% for key, values in item["changes"].items() %}
+                            {% for key, values in item.changes.items() %}
                                 <tr>
                                     <td><strong>{{ key }}</strong></td>
-                                    <td class="text-danger">{{ values["old"] }}</td>
-                                    <td class="text-success">{{ values["new"] }}</td>
+                                    <td class="text-danger">{{ values.old }}</td>
+                                    <td class="text-success">{{ values.new }}</td>
                                 </tr>
                             {% endfor %}
                             </tbody>
