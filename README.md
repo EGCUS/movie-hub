@@ -184,6 +184,17 @@ vagrant up
 
 Movie-Hub también ofrece despliegue con **Docker** para entornos de producción y desarrollo, utilizando contenedores para una configuración rápida y reproducible.
 
+## Ejecutar el proyecto en modo desarrollo
+
+Este proyecto permite configurar la URL del FakeNodo mediante la variable de entorno `FAKENODO_URL`.
+
+Para correr la aplicación en modo desarrollo, con recarga automática, debug y soporte de múltiples threads, ejecutar:
+
+```bash
+FAKENODO_URL=http://localhost:5000 flask run --with-threads --host=0.0.0.0 --reload --debug
+```
+
+
 ### 📋 Requisitos previos
 
 - **Docker** y **Docker Compose** instalados en tu sistema
@@ -200,6 +211,7 @@ MARIADB_USER=uvlhubdb_user
 MARIADB_PASSWORD=uvlhubdb_password
 MARIADB_ROOT_PASSWORD=uvlhubdb_root_password
 WORKING_DIR=/app
+FAKENODO_URL=http://localhost:5000
 ```
 
 ### ⚡ Instalación rápida (producción)
