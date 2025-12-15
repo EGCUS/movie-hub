@@ -1,0 +1,205 @@
+{% extends "base_template.html" %}
+
+{% block title %}Edit Dataset{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <a href="{{ url_for('movie.view_dataset', dataset_id=dataset.id) }}" class="btn btn-outline-secondary mb-3">
+        <i data-feather="arrow-left"></i> Back
+    </a>
+
+    <!-- Mensajes Flash -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ 'danger' if category == 'error' else 'warning' if category == 'warning' else 'success' if category == 'success' else 'info' }} alert-dismissible fade show">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <div class="card">
+        <div class="card-header bg-primary text-white">
+            <h3 class="mb-0">Edit Dataset Metadata</h3>
+        </div>
+
+        <div class="card-body">
+            <form method="POST">
+                {{ form.hidden_tag() }}
+
+                <div class="mb-3">
+                    <label class="form-label"><strong>Title *</strong></label>
+                    {{ form.title(class="form-control" + (" is-invalid" if form.title.errors else "")) }}
+                    {% if form.title.errors %}
+                        <div class="invalid-feedback">{{ form.title.errors[0] }}</div>
+                    {% endif %}
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label"><strong>Description *</strong></label>
+                    {{ form.desc(class="form-control" + (" is-invalid" if form.desc.errors else ""), rows="4") }}
+                    {% if form.desc.errors %}
+                        <div class="invalid-feedback">{{ form.desc.errors[0] }}</div>
+                    {% endif %}
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label"><strong>Tags *</strong></label>
+                    {{ form.tags(class="form-control", placeholder="movies, sci-fi, action") }}
+                    <small class="text-muted">Separate with commas</small>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label"><strong>Community</strong></label>
+                    {{ form.community_id(class="form-select") }}
+                    <small class="text-muted">
+                        <i data-feather="info"></i> 
+                        Select a community to associate this dataset with
+                    </small>
+                    {% if dataset.community %}
+                        <div class="mt-2">
+                            <span class="badge bg-secondary">
+                                Current: {{ dataset.community.name }}
+                            </span>
+                        </div>
+                    {% endif %}
+                </div>
+
+                <div class="mb-4">
+                    <label class="form-label"><strong>Authors *</strong></label>
+                    
+                    <div id="authors-container">
+                        {% for author_form in form.authors %}
+                            <div class="card mb-2 author-entry" data-index="{{ loop.index0 }}">
+                                <div class="card-body">
+                                    {% if loop.index0 == 0 %}
+                                    <small class="text-muted d-block mb-2">
+                                        <i data-feather="lock"></i> Main author (protected)
+                                    </small>
+                                    {% endif %}
+                                    
+                                    <div class="row">
+                                        <div class="col-md-4">
+                                            <label>Name *</label>
+                                            {{ author_form.form.name(
+                                                class="form-control", 
+                                                readonly=(loop.index0 == 0)
+                                            ) }}
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label>Affiliation</label>
+                                            {{ author_form.form.affiliation(
+                                                class="form-control",
+                                                readonly=(loop.index0 == 0)
+                                            ) }}
+                                        </div>
+                                        <div class="col-md-3">
+                                            <label>ORCID</label>
+                                            {{ author_form.form.orcid(
+                                                class="form-control",
+                                                placeholder="0000-0000-0000-0000",
+                                                readonly=(loop.index0 == 0)
+                                            ) }}
+                                        </div>
+                                        <div class="col-md-1 d-flex align-items-end">
+                                            {% if loop.index0 > 0 %}
+                                            <button type="button" class="btn btn-danger btn-sm remove-author">
+                                                <i data-feather="trash-2"></i>
+                                            </button>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+
+                    <button type="button" id="add-author" class="btn btn-outline-primary btn-sm">
+                        <i data-feather="plus"></i> Add Author
+                    </button>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label"><strong>Edit Comment</strong> (optional)</label>
+                    {{ form.edit_comment(class="form-control", rows="2", placeholder="What did you change?") }}
+                </div>
+
+                <div class="d-flex justify-content-between">
+                    <a href="{{ url_for('movie.view_dataset', dataset_id=dataset.id) }}" class="btn btn-secondary">
+                        Cancel
+                    </a>
+                    <button type="submit" class="btn btn-primary">
+                        <i data-feather="save"></i> Save Changes
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Changelog Link -->
+    <div class="card mt-3">
+        <div class="card-body">
+            <a href="{{ url_for('movie.view_changelog', dataset_id=dataset.id) }}" class="btn btn-outline-secondary btn-sm">
+                <i data-feather="clock"></i> View Change History
+            </a>
+        </div>
+    </div>
+</div>
+
+<script>
+let authorIndex = {{ form.authors|length }};
+
+document.getElementById('add-author').addEventListener('click', function() {
+    const container = document.getElementById('authors-container');
+    const html = `
+        <div class="card mb-2 author-entry" data-index="${authorIndex}">
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-4">
+                        <label>Name *</label>
+                        <input type="text" name="authors-${authorIndex}-name" class="form-control" placeholder="Surname, FirstName" required>
+                    </div>
+                    <div class="col-md-4">
+                        <label>Affiliation</label>
+                        <input type="text" name="authors-${authorIndex}-affiliation" class="form-control">
+                    </div>
+                    <div class="col-md-3">
+                        <label>ORCID</label>
+                        <input type="text" name="authors-${authorIndex}-orcid" class="form-control" placeholder="0000-0000-0000-0000">
+                    </div>
+                    <div class="col-md-1 d-flex align-items-end">
+                        <button type="button" class="btn btn-danger btn-sm remove-author">
+                            <i data-feather="trash-2"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    container.insertAdjacentHTML('beforeend', html);
+    authorIndex++;
+    feather.replace();
+});
+
+document.addEventListener('click', function(e) {
+    if (e.target.closest('.remove-author')) {
+        const entry = e.target.closest('.author-entry');
+        if (entry.getAttribute('data-index') !== '0') {
+            entry.remove();
+        }
+    }
+});
+
+document.addEventListener('DOMContentLoaded', () => feather.replace());
+</script>
+
+<style>
+input[readonly] {
+    background-color: #f8f9fa;
+    cursor: not-allowed;
+    opacity: 0.7;
+}
+</style>
+{% endblock %}

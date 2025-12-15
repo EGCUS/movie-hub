@@ -1,3 +1,4 @@
+import os
 from flask import render_template, request, jsonify
 from app.modules.fakenodo import fakenodo_bp
 from app.modules.fakenodo.models import Fakenodo
@@ -8,10 +9,14 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+from app.modules.featuremodel.models import FeatureModel
+from app.modules.movie.models import MovieDataset
+
 
 @fakenodo_bp.route("/fakenodo", methods=["GET"])
 def index():
     return render_template("fakenodo/index.html")
+
 
 @fakenodo_bp.route("/fakenodo/create", methods=["POST"])
 def create_fakenodo():
@@ -68,6 +73,7 @@ def publish(fakenodo_id):
     except Exception as e:
         return jsonify({"error": f"Unexpected error: {str(e)}"}), 500
 
+
 @fakenodo_bp.route("/fakenodo/<int:fakenodo_id>", methods=["GET"])
 def getOne(fakenodo_id):
     try:
@@ -87,5 +93,54 @@ def get_doi_versions(fakenodo_id):
         return jsonify(data), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 404
+
     except Exception as e:
         return jsonify({"error": "Unexpected error -> " + str(e)}), 500
+
+
+@fakenodo_bp.route("/fakenodo/upload/<int:fakenodo_id>", methods=["POST"])
+def upload_dataset(fakenodo_id: int):
+    try:
+        if "file" not in request.files:
+            return jsonify({"ok": False, "error": "file is required"}), 400
+
+        file = request.files["file"]
+        if not file or file.filename == "":
+            return jsonify({"ok": False, "error": "empty filename"}), 400
+
+        dataset_id = int(request.form.get("dataset_id", 0))
+        if not dataset_id:
+            return jsonify({"ok": False, "error": "dataset_id is required"}), 400
+
+        # Leer contenido del archivo
+        file_content = file.read()
+        
+        # Usar el servicio actualizado
+        svc = FakenodoService()
+        result = svc.upload_file_to_fakenodo(
+            fakenodo_id=fakenodo_id,
+            file_content=file_content,
+            filename=file.filename,
+            dataset_id=dataset_id
+        )
+
+        db.session.commit()
+
+        return jsonify({
+            "ok": True,
+            "fakenodo_id": result["fakenodo_id"],
+            "dataset_id": result["dataset_id"],
+            "file_path": result["file_path"],
+            "checksum": result["checksum"],
+            "status": result["status"]
+        }), 200
+
+    except ValueError as e:
+        db.session.rollback()
+        return jsonify({"ok": False, "error": str(e)}), 400
+    except Exception as e:
+        db.session.rollback()
+        logger.exception("Error uploading file to Fakenodo")
+        return jsonify({"ok": False, "error": f"Unexpected error: {str(e)}"}), 500
+    
+    

@@ -33,6 +33,9 @@ class BaseDataset(db.Model):
     ds_meta_data_id = db.Column(db.Integer, db.ForeignKey("ds_meta_data.id"), nullable=False)
     ds_meta_data = db.relationship("DSMetaData", backref=db.backref("dataset", uselist=False))
 
+    community_id = db.Column(db.Integer, db.ForeignKey("community.id"), nullable=True)
+    community = db.relationship("Community", backref="datasets", lazy=True)
+
     versions = db.relationship("Version", back_populates="dataset", cascade="all, delete-orphan")
     feature_models = db.relationship("FeatureModel", backref="dataset", lazy=True, cascade="all, delete")
     fakenodo = db.relationship("Fakenodo", back_populates="dataset", lazy=True, cascade="all, delete-orphan")

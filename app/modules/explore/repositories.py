@@ -4,6 +4,7 @@ import unidecode
 from sqlalchemy import any_, or_
 
 from app.modules.dataset.models import Author, DSMetaData, PublicationType
+from app.modules.fakenodo.models import Fakenodo
 from app.modules.movie.models import MovieDataset, Movie
 from core.repositories.BaseRepository import BaseRepository
 
@@ -12,7 +13,7 @@ class ExploreRepository(BaseRepository):
     def __init__(self):
         super().__init__(MovieDataset)
 
-    def filter(self, query="", sorting="newest", publication_type="any", tags=[], **kwargs):
+    def filter(self, query="", sorting="newest", publication_type="any", tags=[], community_id=None, **kwargs):
         # Normalize and remove unwanted characters
         normalized_query = unidecode.unidecode(query).lower()
         cleaned_query = re.sub(r'[,.":\'()\[\]^;!¡¿?]', "", normalized_query)
@@ -41,10 +42,14 @@ class ExploreRepository(BaseRepository):
             MovieDataset.query
             .join(MovieDataset.ds_meta_data)
             .join(DSMetaData.authors)
+            # Join con Fakenodo para filtrar solo los datasets publicados
+            .join(Fakenodo, Fakenodo.dataset_id == MovieDataset.id)
             .outerjoin(MovieDataset.movies)  # Left join to include datasets without movies
-            .filter(or_(*filters))
             .filter(DSMetaData.dataset_doi.isnot(None))  # Only public datasets
+            .filter(Fakenodo.status == "published")
         )
+        if filters:
+            datasets = datasets.filter(or_(*filters))
 
         if publication_type != "any":
             matching_type = None
@@ -59,6 +64,9 @@ class ExploreRepository(BaseRepository):
         if tags:
             datasets = datasets.filter(DSMetaData.tags.ilike(any_(f"%{tag}%" for tag in tags)))
 
+        if community_id:
+            datasets = datasets.filter(MovieDataset.community_id == community_id)  
+            
         datasets = datasets.distinct()
 
         # Order by created_at

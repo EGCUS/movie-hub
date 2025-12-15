@@ -6,6 +6,8 @@ class Fakenodo(db.Model):
     status = db.Column(db.String(50), nullable=True, default="draft")
     dataset_id = db.Column(db.Integer, db.ForeignKey("base_dataset.id"), nullable=False)
     dataset = db.relationship("BaseDataset", back_populates="fakenodo", lazy=True)
+    dataset_file_path = db.Column(db.String(500), nullable=True)
+    doi = db.Column(db.String(120), nullable=True)
 
     def __repr__(self):
         return f'Fakenodo<{self.id}>'

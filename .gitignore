@@ -23,7 +23,7 @@ __pycache__/
 # Logs & coverage
 # ==========================
 *.log
-app.log
+app.log.*
 deployments.log
 .coverage
 htmlcov/
@@ -34,6 +34,7 @@ coverage.xml
 # Config & environment
 # ==========================
 .env
+.env.docker
 .version
 nginx.prod.ssl.conf
 entrypoint.sh

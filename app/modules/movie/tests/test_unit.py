@@ -1,7 +1,10 @@
+import hashlib
 import io
+import json
 import os
 import tempfile
-from unittest.mock import patch, MagicMock
+from datetime import timezone, datetime
+from unittest.mock import mock_open, patch, MagicMock
 import pytest
 from flask import url_for
 
@@ -57,22 +60,37 @@ def test_my_datasets_requires_login(mock_get_by_user, test_client):
 
 
 # ---------- GET /moviedataset/<id> ----------
+from unittest.mock import patch, MagicMock
+
+@patch("app.modules.movie.routes.ds_view_record_service.create_cookie")
 @patch("app.modules.movie.routes.movie_service.get_moviedataset")
-def test_view_dataset(mock_get_dataset, test_client):
-    # Crear mock completo del dataset
+def test_view_dataset(mock_get_dataset, mock_create_cookie, test_client):
+    # Mock del dataset
     mock_dataset = MagicMock()
     mock_dataset.id = 123
     mock_dataset.ds_meta_data.title = "Mock Dataset"
     mock_dataset.ds_meta_data.description = "Mock Description"
     mock_dataset.ds_meta_data.tags = "test, mock"
-    mock_dataset.movies = []  # Lista vacía de películas
-    
+    mock_dataset.movies = []
+
     mock_get_dataset.return_value = mock_dataset
-    
+
+    # Mock de create_cookie para que no intente modificar BD
+    mock_create_cookie.return_value = "fake-cookie-value"
+
     response = test_client.get("/moviedataset/123")
+
+    # --- Asserts ---
     assert response.status_code == 200
     assert b"Mock Dataset" in response.data
+
     mock_get_dataset.assert_called_once_with(123)
+    mock_create_cookie.assert_called_once_with(dataset=mock_dataset)
+
+    # También podemos validar que la cookie se setea:
+    assert response.headers.get("Set-Cookie") is not None
+    assert "view_cookie=fake-cookie-value" in response.headers.get("Set-Cookie")
+
 
 
 # ---------- GET /movie/<id> ----------
@@ -101,24 +119,46 @@ def test_view_movie(mock_get_movie, test_client):
 
 # ---------- GET /moviedataset/<id>/download ----------
 @patch("app.modules.movie.routes.movie_service.get_moviedataset")
-def test_download_dataset_creates_zip(mock_get_dataset, test_client, tmp_path):
+@patch("app.modules.movie.routes.DSDownloadRecordService")
+@patch("app.modules.movie.routes.DSDownloadRecord")
+def test_download_dataset_creates_zip(mock_record_model, mock_record_service, mock_get_dataset, test_client, tmp_path):
+    # --- Mock dataset ---
     dataset_mock = MagicMock()
     dataset_mock.id = 5
     dataset_mock.user_id = 99
     mock_get_dataset.return_value = dataset_mock
 
+    # --- Crear carpeta y archivo en tmp_path ---
     folder = tmp_path / "uploads" / "user_99" / "dataset_5"
     folder.mkdir(parents=True)
     (folder / "test.txt").write_text("contenido")
 
+    # --- Mock de query para que no toque base de datos ---
+    mock_record_model.query.filter_by.return_value.first.return_value = None
+
+    # --- Mock os.path.exists + os.walk ---
     with patch("app.modules.movie.routes.os.path.exists", return_value=True), \
          patch("app.modules.movie.routes.os.walk") as mockwalk:
+        
         mockwalk.return_value = [(str(folder), [], ["test.txt"])]
-        response = test_client.get("/moviedataset/5/download")
 
+        response: Response = test_client.get("/moviedataset/5/download")
+
+    # ---- Assertions ----
     assert response.status_code == 200
     assert response.mimetype == "application/zip"
+
+    # Se llamó al servicio para obtener el dataset
     mock_get_dataset.assert_called_once_with(5)
+
+    # Se debería haber intentado crear un record porque no existía antes
+    mock_record_service.return_value.create.assert_called_once()
+
+    # Aseguramos que el zip se haya enviado
+    content_disp = response.headers.get("Content-Disposition")
+    assert "attachment" in content_disp
+    assert "movie_dataset_5.zip" in content_disp
+
 
 
 def test_download_dataset_not_found(test_client):
@@ -153,21 +193,17 @@ def test_compare_versions_page_renders(mock_get_dataset, test_client):
 def test_compare_version_ids_detects_changes(mock_load):
     from app.modules.movie.services import MovieService
 
-    class FakeMeta:
-        def __init__(self, title):
-            self.title = title
-
     class FakeMovie:
-        def __init__(self, id, title):
-            self.id = id
+        def __init__(self, logical_id, title):
+            self.logical_id = logical_id
             self.title = title
 
     mock_v1 = MagicMock()
-    mock_v1.ds_meta_data = FakeMeta("Title A")
+    mock_v1.ds_meta_data = {"title": "Title A"}
     mock_v1.movies = [FakeMovie(1, "Movie A")]
 
     mock_v2 = MagicMock()
-    mock_v2.ds_meta_data = FakeMeta("Title B")
+    mock_v2.ds_meta_data = {"title": "Title B"}
     mock_v2.movies = [
         FakeMovie(1, "Movie A"),
         FakeMovie(2, "Movie Added")
@@ -178,8 +214,800 @@ def test_compare_version_ids_detects_changes(mock_load):
     svc = MovieService()
     diff = svc.compare_version_ids(1, 2)
 
-    # Assert cambios detectados
     assert "title" in diff["metadata_changed"]
+    assert diff["movies_added"][0]["logical_id"] == 2
+    
+    
+@patch("app.modules.movie.services.MovieDataset")
+def test_get_published_datasets(mock_movie_dataset):
+    from app.modules.movie.services import MovieService
+    
+    # Mock de datasets publicados
+    mock_dataset1 = MagicMock()
+    mock_dataset1.id = 1
+    
+    mock_dataset2 = MagicMock()
+    mock_dataset2.id = 2
+    
+    mock_query = MagicMock()
+    mock_query.join.return_value.filter.return_value.order_by.return_value = [
+        mock_dataset1, mock_dataset2
+    ]
+    mock_movie_dataset.query = mock_query
+    
+    service = MovieService()
+    result = service.get_published_datasets()
+    
+    assert len(result) == 2
+    assert result[0].id == 1
+    assert result[1].id == 2
 
-    # movies_added devuelve DICTS, no objetos
-    assert diff["movies_added"][0]["title"] == "Movie Added"
+
+# ========================================
+# GET /moviedataset/my-datasets
+# ========================================
+
+@patch("app.modules.movie.routes.movie_service.get_unsynchronized_datasets_by_user")
+@patch("app.modules.movie.routes.movie_service.get_moviedataset_by_user")
+def test_my_datasets_shows_both_types(mock_get_published, mock_get_drafts, test_client):
+    """Test que muestra datasets publicados y drafts del usuario"""
+    
+    mock_published = MagicMock()
+    mock_published.id = 1
+    mock_published.ds_meta_data.title = "Published Dataset"
+    
+    mock_draft = MagicMock()
+    mock_draft.id = 2
+    mock_draft.ds_meta_data.title = "Draft Dataset"
+    
+    mock_get_published.return_value = [mock_published]
+    mock_get_drafts.return_value = [mock_draft]
+    
+    with patch("flask_login.utils._get_user") as mock_current_user:
+        mock_user = MagicMock()
+        mock_user.is_authenticated = True
+        mock_user.id = 1
+        mock_current_user.return_value = mock_user
+        
+        response = test_client.get("/moviedataset/my-datasets")
+    
+    assert response.status_code == 200
+    assert b"Published Dataset" in response.data
+    assert b"Draft Dataset" in response.data
+    mock_get_published.assert_called_once_with(1)
+    mock_get_drafts.assert_called_once_with(1)
+
+
+# ========================================
+# POST /moviedataset/<id>/publish
+# ========================================
+
+@patch("app.modules.fakenodo.models.Fakenodo")
+@patch("app.modules.movie.routes.fakenodo_adapter.publish_fakenodo")
+@patch("app.modules.movie.routes.movie_service.get_moviedataset")
+def test_publish_dataset_success(mock_get_dataset, mock_publish, mock_fakenodo_model, test_client):
+    
+    mock_dataset = MagicMock()
+    mock_dataset.id = 5
+    mock_dataset.user_id = 1
+    mock_get_dataset.return_value = mock_dataset
+    
+    mock_fakenodo = MagicMock()
+    mock_fakenodo.id = 100
+    mock_fakenodo.doi = "10.1234/test"
+    mock_fakenodo.status = "published"
+    
+    mock_publish.return_value = mock_fakenodo
+    mock_fakenodo_model.query.filter_by.return_value.first.return_value = mock_fakenodo
+    
+    with patch("flask_login.utils._get_user") as mock_current_user:
+        mock_user = MagicMock()
+        mock_user.is_authenticated = True
+        mock_user.id = 1
+        mock_current_user.return_value = mock_user
+        
+        response = test_client.post("/moviedataset/5/publish")
+    
+    assert response.status_code == 200
+    data = json.loads(response.data)
+    assert data["message"] == "Dataset published successfully"
+    assert data["doi"] == "10.1234/test"
+    assert data["status"] == "published"
+    mock_publish.assert_called_once_with(100)
+
+
+@patch("app.modules.movie.routes.movie_service.get_moviedataset")
+def test_publish_dataset_forbidden(mock_get_dataset, test_client):
+    
+    mock_dataset = MagicMock()
+    mock_dataset.id = 5
+    mock_dataset.user_id = 999  # Otro usuario
+    mock_get_dataset.return_value = mock_dataset
+    
+    with patch("flask_login.utils._get_user") as mock_current_user:
+        mock_user = MagicMock()
+        mock_user.is_authenticated = True
+        mock_user.id = 1
+        mock_current_user.return_value = mock_user
+        
+        response = test_client.post("/moviedataset/5/publish")
+    
+    assert response.status_code == 403
+    data = json.loads(response.data)
+    assert "permission" in data["error"]
+
+
+@patch("app.modules.fakenodo.models.Fakenodo")
+@patch("app.modules.movie.routes.movie_service.get_moviedataset")
+def test_publish_dataset_no_fakenodo(mock_get_dataset, mock_fakenodo_model, test_client):
+    
+    mock_dataset = MagicMock()
+    mock_dataset.id = 5
+    mock_dataset.user_id = 1
+    mock_get_dataset.return_value = mock_dataset
+    
+    mock_fakenodo_model.query.filter_by.return_value.first.return_value = None
+    
+    with patch("flask_login.utils._get_user") as mock_current_user:
+        mock_user = MagicMock()
+        mock_user.is_authenticated = True
+        mock_user.id = 1
+        mock_current_user.return_value = mock_user
+        
+        response = test_client.post("/moviedataset/5/publish")
+    
+    assert response.status_code == 404
+    data = json.loads(response.data)
+    assert "Fakenodo record not found" in data["error"]
+
+
+# ========================================
+# GET /moviedataset/<id>/manage
+# ========================================
+
+@patch("app.modules.movie.routes.movie_service.get_moviedataset")
+def test_manage_dataset_success(mock_get_dataset, test_client):
+    
+    mock_dataset = MagicMock()
+    mock_dataset.id = 10
+    mock_dataset.user_id = 1
+    mock_dataset.ds_meta_data.title = "My Dataset"
+    mock_get_dataset.return_value = mock_dataset
+    
+    with patch("flask_login.utils._get_user") as mock_current_user:
+        mock_user = MagicMock()
+        mock_user.is_authenticated = True
+        mock_user.id = 1
+        mock_current_user.return_value = mock_user
+        
+        response = test_client.get("/moviedataset/10/manage")
+    
+    assert response.status_code == 200
+    assert b"My Dataset" in response.data
+
+
+#Comprobar que solo el usuario propietario puede gestionar el dataset
+@patch("app.modules.movie.routes.movie_service.get_moviedataset")
+def test_manage_dataset_forbidden(mock_get_dataset, test_client):
+    
+    mock_dataset = MagicMock()
+    mock_dataset.id = 10
+    mock_dataset.user_id = 999
+    mock_get_dataset.return_value = mock_dataset
+    
+    with patch("flask_login.utils._get_user") as mock_current_user:
+        mock_user = MagicMock()
+        mock_user.is_authenticated = True
+        mock_user.id = 1
+        mock_current_user.return_value = mock_user
+        
+        response = test_client.get("/moviedataset/10/manage")
+    
+    assert response.status_code == 403
+
+
+# ========================================
+# POST /moviedataset/upload (DRAFT)
+# ========================================
+
+@patch("app.modules.movie.routes.dsmetadata_service")
+@patch("app.modules.movie.routes.movie_service.upload_draft_dataset")
+def test_upload_dataset_as_draft(mock_upload_draft, mock_dsmetadata, test_client):
+    """Test subir dataset como draft"""
+    
+    mock_dataset = MagicMock()
+    mock_dataset.id = 20
+    mock_upload_draft.return_value = (mock_dataset, 10, 123)
+    
+    with patch("flask_login.utils._get_user") as mock_current_user:
+        mock_user = MagicMock()
+        mock_user.is_authenticated = True
+        mock_user.id = 1
+        mock_user.profile.name = "John"
+        mock_user.profile.surname = "Doe"
+        mock_user.profile.affiliation = "University"
+        mock_user.profile.orcid = ""
+        mock_current_user.return_value = mock_user
+        
+        # Simular datos del formulario
+        data = {
+            'action': 'draft',
+            'title': 'Test Dataset',
+            'desc': 'Test Description',
+            'publication_type': 'none',
+            'publication_doi': '',
+            'tags': 'test',
+            'authors-0-name': 'Doe, John',
+            'authors-0-affiliation': 'University',
+            'authors-0-orcid': '',
+            'file': (io.BytesIO(json.dumps({"movies": [{"title": "Test", "year": 2020, "director": "Director"}]}).encode()), 'movies.json')
+        }
+        
+        response = test_client.post(
+            "/moviedataset/upload",
+            data=data,
+            content_type='multipart/form-data',
+            follow_redirects=False
+        )
+    
+    assert response.status_code == 302  # Redirect
+    assert "dataset_id=20" in response.location
+    assert "action=draft" in response.location
+
+
+# ========================================
+# POST /moviedataset/upload (PUBLISH)
+# ========================================
+
+@patch("app.modules.movie.routes.dsmetadata_service")
+@patch("app.modules.movie.routes.movie_service.upload_and_publish_dataset")
+def test_upload_dataset_and_publish(mock_upload_publish, mock_dsmetadata, test_client):
+    """Test subir dataset y publicar directamente"""
+    
+    mock_dataset = MagicMock()
+    mock_dataset.id = 25
+    mock_upload_publish.return_value = (mock_dataset, 15)
+    
+    with patch("flask_login.utils._get_user") as mock_current_user:
+        mock_user = MagicMock()
+        mock_user.is_authenticated = True
+        mock_user.id = 1
+        mock_user.profile.name = "Jane"
+        mock_user.profile.surname = "Smith"
+        mock_user.profile.affiliation = "MIT"
+        mock_user.profile.orcid = ""
+        mock_current_user.return_value = mock_user
+        
+        data = {
+            'action': 'publish',
+            'title': 'Published Dataset',
+            'desc': 'Published Description',
+            'publication_type': 'none',
+            'publication_doi': '',
+            'tags': 'published',
+            'authors-0-name': 'Smith, Jane',
+            'authors-0-affiliation': 'MIT',
+            'authors-0-orcid': '',
+            'file': (io.BytesIO(json.dumps({"movies": [{"title": "Movie", "year": 2021, "director": "Dir"}]}).encode()), 'movies.json')
+        }
+        
+        response = test_client.post(
+            "/moviedataset/upload",
+            data=data,
+            content_type='multipart/form-data',
+            follow_redirects=False
+        )
+    
+    assert response.status_code == 302
+    assert "dataset_id=25" in response.location
+    assert "action=publish" in response.location
+
+
+@patch("app.modules.movie.routes.movie_service.upload_draft_dataset")
+def test_upload_dataset_validation_error(mock_upload_draft, test_client):
+    """Test error de validación al subir dataset"""
+    
+    mock_upload_draft.side_effect = ValueError("Invalid JSON format")
+    
+    with patch("flask_login.utils._get_user") as mock_current_user:
+        mock_user = MagicMock()
+        mock_user.is_authenticated = True
+        mock_user.id = 1
+        mock_user.profile.name = "Test"
+        mock_user.profile.surname = "User"
+        mock_user.profile.affiliation = ""
+        mock_user.profile.orcid = ""
+        mock_current_user.return_value = mock_user
+        
+        data = {
+            'action': 'draft',
+            'title': 'Bad Dataset',
+            'desc': 'Bad',
+            'publication_type': 'dataset',
+            'authors-0-name': 'User, Test'
+        }
+        
+        data['file'] = (io.BytesIO(b"bad json {{"), 'bad.json')
+        
+        response = test_client.post(
+            "/moviedataset/upload",
+            data=data,
+            content_type='multipart/form-data'
+        )
+    
+    assert response.status_code == 200  # Vuelve al formulario
+    # La página debería mostrar el error
+
+
+# ========================================
+# GET /moviedataset/upload
+# ========================================
+
+def test_upload_dataset_get_form(test_client):
+    """Test mostrar formulario de upload"""
+    
+    with patch("flask_login.utils._get_user") as mock_current_user:
+        mock_user = MagicMock()
+        mock_user.is_authenticated = True
+        mock_user.id = 1
+        mock_user.profile.name = "John"
+        mock_user.profile.surname = "Doe"
+        mock_user.profile.affiliation = "University"
+        mock_user.profile.orcid = ""
+        mock_current_user.return_value = mock_user
+        
+        response = test_client.get("/moviedataset/upload")
+    
+    assert response.status_code == 200
+    assert b"Upload" in response.data or b"upload" in response.data
+    
+# ========================================
+# AO PARTIR DE AQUI TENEMOS LOS TESTS DE MINOR CHANGES WI 84
+# ========================================
+
+# ========================================
+# GET /moviedataset/<id>/changelog
+# ========================================
+
+@patch("app.modules.movie.routes.movie_service.get_moviedataset")
+@patch("app.modules.movie.routes.movie_service.get_change_history")
+def test_view_changelog(mock_get_history, mock_get_dataset, test_client):
+    """Test ver historial de cambios de un dataset"""
+    
+    mock_dataset = MagicMock()
+    mock_dataset.id = 1
+    mock_dataset.ds_meta_data.title = "Test Dataset"
+    mock_get_dataset.return_value = mock_dataset
+    
+    mock_change = MagicMock()
+    mock_change.change_type = "metadata"
+    mock_change.created_at = datetime.now(timezone.utc)
+    mock_get_history.return_value = [mock_change]
+    
+    response = test_client.get("/moviedataset/1/changelog")
+    
+    assert response.status_code == 200
+    assert b"Test Dataset" in response.data
+    mock_get_dataset.assert_called_once_with(1)
+    mock_get_history.assert_called_once_with(1)
+    
+# ========================================
+# GET /api/moviedataset/<id>/changelog
+# ========================================
+
+@patch("app.modules.movie.routes.movie_service.get_moviedataset")
+@patch("app.modules.movie.routes.movie_service.get_change_history")
+def test_api_changelog(mock_get_history, mock_get_dataset, test_client):
+    """Comprobación se obtiene JSON"""
+    
+    mock_dataset = MagicMock()
+    mock_dataset.id = 1
+    mock_dataset.ds_meta_data.title = "API Dataset"
+    mock_get_dataset.return_value = mock_dataset
+    
+    mock_change = MagicMock()
+    mock_change.to_dict.return_value = {
+        "change_type": "metadata",
+        "changes": {"title": {"old": "Old", "new": "New"}}
+    }
+    mock_get_history.return_value = [mock_change]
+    
+    response = test_client.get("/api/moviedataset/1/changelog")
+    
+    assert response.status_code == 200
+    data = json.loads(response.data)
+    assert data["dataset_id"] == 1
+    assert data["dataset_title"] == "API Dataset"
+    assert len(data["changes"]) == 1
+
+
+# ========================================
+# GET /moviedataset/<id>/edit
+# ========================================
+
+@patch("app.modules.movie.routes.movie_service.get_moviedataset")
+def test_edit_dataset_metadata_get(mock_get_dataset, test_client):
+    """Test mostrar formulario de edición de metadata"""
+    
+    mock_dataset = MagicMock()
+    mock_dataset.id = 5
+    mock_dataset.user_id = 1
+    mock_dataset.ds_meta_data.title = "Original Title"
+    mock_dataset.ds_meta_data.description = "Original Description"
+    mock_dataset.ds_meta_data.tags = "tag1, tag2"
+    
+    mock_author = MagicMock()
+    mock_author.name = "Doe, John"
+    mock_author.affiliation = "University"
+    mock_author.orcid = ""
+    mock_dataset.ds_meta_data.authors = [mock_author]
+    
+    mock_get_dataset.return_value = mock_dataset
+    
+    with patch("flask_login.utils._get_user") as mock_current_user:
+        mock_user = MagicMock()
+        mock_user.is_authenticated = True
+        mock_user.id = 1
+        mock_current_user.return_value = mock_user
+        
+        response = test_client.get("/moviedataset/5/edit")
+    
+    assert response.status_code == 200
+    assert b"Original Title" in response.data
+
+
+@patch("app.modules.movie.routes.movie_service.get_moviedataset")
+def test_edit_dataset_metadata_forbidden(mock_get_dataset, test_client):
+    """No puedo editar si no soy propietario del dataset"""
+    
+    mock_dataset = MagicMock()
+    mock_dataset.id = 5
+    mock_dataset.user_id = 999
+    mock_get_dataset.return_value = mock_dataset
+    
+    with patch("flask_login.utils._get_user") as mock_current_user:
+        mock_user = MagicMock()
+        mock_user.is_authenticated = True
+        mock_user.id = 1
+        mock_current_user.return_value = mock_user
+        
+        response = test_client.get("/moviedataset/5/edit")
+    
+    assert response.status_code == 403
+
+
+# ========================================
+# POST /moviedataset/<id>/edit
+# ========================================
+
+@patch("app.modules.movie.routes.Community")
+@patch("app.modules.movie.routes.movie_service.edit_community")
+@patch("app.modules.movie.routes.movie_service.edit_authors")
+@patch("app.modules.movie.routes.movie_service.edit_metadata")
+@patch("app.modules.movie.routes.movie_service.get_moviedataset")
+def test_edit_dataset_metadata_post(mock_get_dataset, mock_edit_metadata, mock_edit_authors, mock_edit_community, mock_community, test_client):
+    """Editar metadata de un dataset"""
+    
+    mock_dataset = MagicMock()
+    mock_dataset.id = 5
+    mock_dataset.user_id = 1
+    mock_dataset.community_id = 0
+    mock_dataset.ds_meta_data.title = "Old Title"
+    mock_dataset.ds_meta_data.description = "Old Desc"
+    mock_dataset.ds_meta_data.tags = "old"
+    
+    mock_author = MagicMock()
+    mock_author.name = "Doe, John"
+    mock_author.affiliation = "Uni"
+    mock_author.orcid = "0000-0000-0000-0000"  # ← Agregar ORCID por defecto
+    mock_dataset.ds_meta_data.authors = [mock_author]
+    
+    mock_get_dataset.return_value = mock_dataset
+    mock_edit_metadata.return_value = {"title": {"old": "Old Title", "new": "New Title"}}
+    mock_edit_authors.return_value = True
+    mock_edit_community.return_value = False
+    
+    # ← Mock de Community.query para el constructor del form
+    mock_community_obj = MagicMock()
+    mock_community_obj.id = 1
+    mock_community_obj.name = "Test Community"
+    mock_community.query.order_by.return_value.all.return_value = [mock_community_obj]
+    
+    with patch("flask_login.utils._get_user") as mock_current_user:
+        mock_user = MagicMock()
+        mock_user.is_authenticated = True
+        mock_user.id = 1
+        mock_current_user.return_value = mock_user
+        
+        data = {
+            'title': 'New Title',
+            'desc': 'New Description',
+            'tags': 'new, tags',
+            'community_id': '0',  # ← Agregar community_id
+            'edit_comment': 'Updated metadata',
+            'authors-0-name': 'Doe, John',
+            'authors-0-affiliation': 'Uni',
+            'authors-0-orcid': '0000-0000-0000-0000'  # ← Agregar ORCID
+        }
+        
+        response = test_client.post(
+            "/moviedataset/5/edit",
+            data=data,
+            follow_redirects=False
+        )
+    
+    assert response.status_code == 302
+    assert "/moviedataset/5" in response.location
+    mock_edit_metadata.assert_called_once()
+    mock_edit_authors.assert_called_once()
+    mock_edit_community.assert_called_once()
+
+@patch("app.modules.movie.routes.movie_service.upload_draft_dataset")
+@patch("app.modules.movie.routes.Community")
+def test_upload_dataset_with_existing_community_id(mock_community_model, mock_upload_draft, test_client):
+    mock_dataset = MagicMock()
+    mock_dataset.id = 30
+    mock_upload_draft.return_value = (mock_dataset, 1, 111)
+
+    c1 = MagicMock()
+    c1.id = 7
+    c1.name = "Existing"
+    mock_community_model.query.order_by.return_value.all.return_value = [c1]
+
+    with patch("flask_login.utils._get_user") as mock_current_user:
+        u = MagicMock()
+        u.is_authenticated = True
+        u.id = 1
+        u.profile.name = "John"
+        u.profile.surname = "Doe"
+        u.profile.affiliation = ""
+        u.profile.orcid = ""
+        mock_current_user.return_value = u
+
+        data = {
+            "action": "draft",
+            "title": "Test Dataset",
+            "desc": "Desc",
+            "publication_type": "none",
+            "publication_doi": "",
+            "tags": "tag",
+            "community_id": "7",
+            "new_community_name": "",
+            "authors-0-name": "Doe, John",
+            "authors-0-affiliation": "",
+            "authors-0-orcid": "",
+            "file": (io.BytesIO(json.dumps({"movies":[{"title":"A","year":2020,"director":"D"}]}).encode()), "movies.json"),
+        }
+
+        resp = test_client.post("/moviedataset/upload", data=data, content_type="multipart/form-data")
+
+    assert resp.status_code == 302
+    mock_upload_draft.assert_called_once()
+    _, kwargs = mock_upload_draft.call_args
+    assert kwargs["community_id"] == 7
+
+
+@patch("app.modules.movie.routes.movie_service.upload_draft_dataset")
+@patch("app.modules.movie.routes.db.session")
+@patch("app.modules.movie.routes.Community")
+def test_upload_dataset_creates_new_community_without_logo(mock_community_model, mock_session, mock_upload_draft, test_client):
+    mock_dataset = MagicMock()
+    mock_dataset.id = 31
+    mock_upload_draft.return_value = (mock_dataset, 1, 111)
+
+    mock_community_model.query.order_by.return_value.all.return_value = []
+
+    mock_community_model.query.filter_by.return_value.first.return_value = None
+
+    new_c = MagicMock()
+    new_c.id = 99
+    mock_community_model.return_value = new_c
+
+    def flush_side_effect():
+        new_c.id = 99
+    mock_session.flush.side_effect = flush_side_effect
+
+    with patch("flask_login.utils._get_user") as mock_current_user:
+        u = MagicMock()
+        u.is_authenticated = True
+        u.id = 1
+        u.profile.name = "John"
+        u.profile.surname = "Doe"
+        u.profile.affiliation = ""
+        u.profile.orcid = ""
+        mock_current_user.return_value = u
+
+        data = {
+            "action": "draft",
+            "title": "Test Dataset",
+            "desc": "Desc",
+            "publication_type": "none",
+            "publication_doi": "",
+            "tags": "tag",
+            "community_id": "7",
+            "new_community_name": "NuevaComunidad",
+            "authors-0-name": "Doe, John",
+            "authors-0-affiliation": "",
+            "authors-0-orcid": "",
+            "file": (io.BytesIO(json.dumps({"movies":[{"title":"A","year":2020,"director":"D"}]}).encode()), "movies.json"),
+        }
+
+        resp = test_client.post("/moviedataset/upload", data=data, content_type="multipart/form-data")
+
+    assert resp.status_code == 302
+    mock_community_model.assert_any_call(name="NuevaComunidad", logo_url=None)
+    _, kwargs = mock_upload_draft.call_args
+    assert kwargs["community_id"] == 99
+
+
+@patch("app.modules.movie.routes.movie_service.upload_draft_dataset")
+@patch("app.modules.movie.routes.Community")
+def test_upload_dataset_new_name_uses_existing_community(mock_community_model, mock_upload_draft, test_client):
+    mock_dataset = MagicMock()
+    mock_dataset.id = 32
+    mock_upload_draft.return_value = (mock_dataset, 1, 111)
+
+    mock_community_model.query.order_by.return_value.all.return_value = []
+
+    existing = MagicMock()
+    existing.id = 55
+    mock_community_model.query.filter_by.return_value.first.return_value = existing
+
+    with patch("flask_login.utils._get_user") as mock_current_user:
+        u = MagicMock()
+        u.is_authenticated = True
+        u.id = 1
+        u.profile.name = "John"
+        u.profile.surname = "Doe"
+        u.profile.affiliation = ""
+        u.profile.orcid = ""
+        mock_current_user.return_value = u
+
+        data = {
+            "action": "draft",
+            "title": "Test Dataset",
+            "desc": "Desc",
+            "publication_type": "none",
+            "publication_doi": "",
+            "tags": "tag",
+            "new_community_name": "ExistingName",
+            "authors-0-name": "Doe, John",
+            "authors-0-affiliation": "",
+            "authors-0-orcid": "",
+            "file": (io.BytesIO(json.dumps({"movies":[{"title":"A","year":2020,"director":"D"}]}).encode()), "movies.json"),
+        }
+
+        resp = test_client.post("/moviedataset/upload", data=data, content_type="multipart/form-data")
+
+    assert resp.status_code == 302
+    mock_community_model.assert_not_called()
+    _, kwargs = mock_upload_draft.call_args
+    assert kwargs["community_id"] == 55
+
+
+@patch("app.modules.movie.routes.movie_service.upload_draft_dataset")
+@patch("app.modules.movie.routes.os.makedirs")
+@patch("app.modules.movie.routes.uuid")
+@patch("app.modules.movie.routes.secure_filename")
+@patch("app.modules.movie.routes.Community")
+def test_upload_dataset_existing_name_ignores_logo(
+    mock_community_model,
+    mock_secure_filename,
+    mock_uuid,
+    mock_makedirs,
+    mock_upload_draft,
+    test_client,
+    tmp_path
+):
+    mock_dataset = MagicMock()
+    mock_dataset.id = 34
+    mock_upload_draft.return_value = (mock_dataset, 1, 111)
+
+    mock_community_model.query.order_by.return_value.all.return_value = []
+
+    existing = MagicMock()
+    existing.id = 55
+    mock_community_model.query.filter_by.return_value.first.return_value = existing
+
+    with patch("app.modules.movie.routes.current_app") as mock_current_app:
+        mock_current_app.static_folder = str(tmp_path)
+
+        with patch("flask_login.utils._get_user") as mock_current_user:
+            u = MagicMock()
+            u.is_authenticated = True
+            u.id = 1
+            u.profile.name = "John"
+            u.profile.surname = "Doe"
+            u.profile.affiliation = ""
+            u.profile.orcid = ""
+            mock_current_user.return_value = u
+
+            data = {
+                "action": "draft",
+                "title": "Test Dataset",
+                "desc": "Desc",
+                "publication_type": "none",
+                "publication_doi": "",
+                "tags": "tag",
+                "new_community_name": "ExistingName",
+                "new_community_logo": (io.BytesIO(b"fake"), "logo.png"),
+                "authors-0-name": "Doe, John",
+                "authors-0-affiliation": "",
+                "authors-0-orcid": "",
+                "file": (
+                    io.BytesIO(json.dumps({"movies": [{"title": "A", "year": 2020, "director": "D"}]}).encode()),
+                    "movies.json",
+                ),
+            }
+
+            resp = test_client.post("/moviedataset/upload", data=data, content_type="multipart/form-data")
+
+    assert resp.status_code == 302
+
+    mock_community_model.assert_not_called()
+
+    mock_makedirs.assert_not_called()
+    mock_secure_filename.assert_not_called()
+    mock_uuid.uuid4.assert_not_called()
+
+    _, kwargs = mock_upload_draft.call_args
+    assert kwargs["community_id"] == 55
+
+
+@patch("app.modules.movie.routes.movie_service.upload_draft_dataset")
+@patch("app.modules.movie.routes.db.session")
+@patch("app.modules.movie.routes.uuid")
+@patch("app.modules.movie.routes.Community")
+def test_upload_dataset_new_community_saves_logo(
+    mock_community_model, mock_uuid, mock_session, mock_upload_draft, test_client, tmp_path
+):
+    mock_dataset = MagicMock()
+    mock_dataset.id = 33
+    mock_upload_draft.return_value = (mock_dataset, 1, 111)
+
+    mock_community_model.query.order_by.return_value.all.return_value = []
+    mock_community_model.query.filter_by.return_value.first.return_value = None
+
+    new_c = MagicMock()
+    new_c.id = 77
+    mock_community_model.return_value = new_c
+
+    mock_uuid.uuid4.return_value.hex = "abc123"
+
+    fake_logo = MagicMock()
+    fake_logo.filename = "logo.png"
+
+    with patch("app.modules.movie.routes.current_app") as mock_current_app, \
+         patch("app.modules.movie.routes.secure_filename", return_value="logo.png"):
+
+        mock_current_app.static_folder = str(tmp_path)
+
+        with patch("flask_login.utils._get_user") as mock_current_user:
+            u = MagicMock()
+            u.is_authenticated = True
+            u.id = 1
+            u.profile.name = "John"
+            u.profile.surname = "Doe"
+            u.profile.affiliation = ""
+            u.profile.orcid = ""
+            mock_current_user.return_value = u
+
+            data = {
+                "action": "draft",
+                "title": "Test Dataset",
+                "desc": "Desc",
+                "publication_type": "none",
+                "publication_doi": "",
+                "tags": "tag",
+                "new_community_name": "ConLogo",
+                "new_community_logo": (io.BytesIO(b"fake"), "logo.png"),  # 👈 upload real en test_client
+                "authors-0-name": "Doe, John",
+                "authors-0-affiliation": "",
+                "authors-0-orcid": "",
+                "file": (io.BytesIO(json.dumps({"movies":[{"title":"A","year":2020,"director":"D"}]}).encode()), "movies.json"),
+            }
+
+            resp = test_client.post("/moviedataset/upload", data=data, content_type="multipart/form-data")
+
+    assert resp.status_code == 302
+    mock_community_model.assert_any_call(name="ConLogo", logo_url="community_abc123.png")

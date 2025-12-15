@@ -15,22 +15,20 @@ class FakenodoSeeder(BaseSeeder):
             print("Algunos datasets no existen. Ejecuta primero el MovieSeeder o DataSeeder.")
             return
 
-        fakenodo1 = Fakenodo(
-            status="draft",
-            dataset_id = dataset1.id,
-            dataset=dataset1,
-        )
+        to_seed = []
 
-        fakenodo2 = Fakenodo(
-            status="published",
-            dataset_id = dataset2.id,
-            dataset=dataset2,
-        )
+        # Only create Fakenodo records when they don't already exist
+        existing1 = Fakenodo.query.filter_by(dataset_id=dataset1.id).first()
+        if not existing1:
+            to_seed.append(Fakenodo(status="draft", dataset_id=dataset1.id, dataset=dataset1))
 
-        fakenodo3 = Fakenodo(
-            status="draft",
-            dataset_id = dataset3.id,
-            dataset=dataset3,
-        )
+        existing2 = Fakenodo.query.filter_by(dataset_id=dataset2.id).first()
+        if not existing2:
+            to_seed.append(Fakenodo(status="published", dataset_id=dataset2.id, dataset=dataset2))
 
-        self.seed([fakenodo1, fakenodo2, fakenodo3])
+        existing3 = Fakenodo.query.filter_by(dataset_id=dataset3.id).first()
+        if not existing3:
+            to_seed.append(Fakenodo(status="draft", dataset_id=dataset3.id, dataset=dataset3))
+
+        if to_seed:
+            self.seed(to_seed)

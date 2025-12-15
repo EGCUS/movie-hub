@@ -9,9 +9,12 @@ from app import db
 from app.modules.auth.models import User
 from app.modules.movie.models import MovieDataset, Movie
 from app.modules.dataset.models import DSMetaData, PublicationType, Author
+from app.modules.fakenodo.models import Fakenodo
 from app.modules.featuremodel.models import FeatureModel, FMMetaData
 from app.modules.hubfile.models import Hubfile
 from core.seeders.BaseSeeder import BaseSeeder
+from app.modules.community.models import Community
+
 
 from app.modules.movie.services import MovieService
 movie_service = MovieService()
@@ -22,10 +25,12 @@ class MovieSeeder(BaseSeeder):
 
     def run(self):
 
-        # ==============================
-        #  PREPARACIÓN
-        # ==============================
+        if MovieDataset.query.join(MovieDataset.ds_meta_data).filter(DSMetaData.dataset_doi.isnot(None)).count() > 0:
+            return
 
+        # ==============================
+        # PREPARACIÓN
+        # ==============================
         user1 = User.query.filter_by(email="user1@example.com").first()
         user2 = User.query.filter_by(email="user2@example.com").first()
 
@@ -34,13 +39,28 @@ class MovieSeeder(BaseSeeder):
 
         load_dotenv()
         working_dir = os.getenv("WORKING_DIR", "")
-        src_folder = os.path.join(working_dir, "app", "modules", "movie", "json_examples")
+        src_folder = os.path.join(
+            working_dir, "app", "modules", "movie", "json_examples"
+        )
 
+        ai = Community.query.filter_by(name="Grupo de Investigación en IA").first()
+        ds = Community.query.filter_by(name="Comunidad de Ciencia de Datos").first()
 
+        if not ai or not ds:
+            raise Exception(
+                "Communities not found. Seed CommunitySeeder before MovieSeeder."
+            )
         # ==============================
         #  DATASET 1 — SCI-FI
         # ==============================
 
+        def generate_logical_id(data: dict) -> str:
+            base = f"{data.get('title')}|{data.get('year')}|{data.get('director')}"
+            return hashlib.sha1(base.encode("utf-8")).hexdigest()
+
+        # ==========================================================
+        # DATASET 1 — SCI-FI (CON VERSIONADO COMPLETO)
+        # ==========================================================
         scifi_meta = DSMetaData(
             title="Sci-Fi Masterpieces Collection",
             description="Essential science fiction films that pushed the boundaries of cinema",
@@ -51,215 +71,534 @@ class MovieSeeder(BaseSeeder):
         db.session.add(scifi_meta)
         db.session.flush()
 
-        scifi_author = Author(
-            name="Sci-Fi Film Institute",
-            affiliation="Future Cinema Foundation",
-            ds_meta_data_id=scifi_meta.id
+        db.session.add(
+            Author(
+                name="Sci-Fi Film Institute",
+                affiliation="Future Cinema Foundation",
+                ds_meta_data_id=scifi_meta.id
+            )
         )
-        db.session.add(scifi_author)
-        db.session.flush()
 
         scifi_dataset = MovieDataset(
             ds_meta_data_id=scifi_meta.id,
             user_id=user1.id,
             dataset_type="movie",
-            created_at=datetime.now(timezone.utc)
+            created_at=datetime.now(timezone.utc),
+            community_id=ai.id
         )
         db.session.add(scifi_dataset)
         db.session.flush()
 
-        with open(os.path.join(src_folder, "movies1.json"), 'r', encoding='utf-8') as f:
+        # Películas Sci-Fi
+        with open(os.path.join(src_folder, "movies1.json"), "r", encoding="utf-8") as f:
             scifi_movies_data = json.load(f)
 
-        scifi_movies = [
-            Movie(movie_dataset_id=scifi_dataset.id, **data)
-            for data in scifi_movies_data
-        ]
-        db.session.add_all(scifi_movies)
-        db.session.flush()
+        for data in scifi_movies_data:
+            logical_id = data.get("logical_id") or generate_logical_id(data)
+            db.session.add(
+                Movie(
+                    movie_dataset_id=scifi_dataset.id,
+                    logical_id=logical_id,
+                    **{k: v for k, v in data.items() if k != "logical_id"}
+                )
+            )
 
+        db.session.commit()
 
-        # ==============================
-        #  DATASET 2 — TARANTINO
-        # ==============================
+        # Carpeta dataset
+        scifi_folder = os.path.join(
+            working_dir,
+            "uploads",
+            f"user_{scifi_dataset.user_id}",
+            f"dataset_{scifi_dataset.id}"
+        )
+        os.makedirs(scifi_folder, exist_ok=True)
 
-        tarantino_meta = DSMetaData(
-            title="Quentin Tarantino Collection",
-            description="Essential films from the master of postmodern cinema",
+        # Archivo inicial
+        src_file = os.path.join(src_folder, "movies1.json")
+        dest_file = os.path.join(scifi_folder, "movies1.json")
+        shutil.copy(src_file, dest_file)
+
+        with open(dest_file, "rb") as f:
+            file_hash = hashlib.md5(f.read()).hexdigest()
+
+        fm_meta = FMMetaData(
+            filename="movies1.json",
+            title="Sci-Fi Movies File",
+            description="Initial Sci-Fi dataset file",
             publication_type=PublicationType.OTHER,
-            tags="movies, tarantino, crime, action",
-            dataset_doi="10.1234/tarantino-movies-2024"
+            tags="movies,json",
+            version="1.0"
         )
-        db.session.add(tarantino_meta)
+        db.session.add(fm_meta)
         db.session.flush()
 
-        tarantino_author = Author(
-            name="Tarantino Film Archive",
-            affiliation="Independent Cinema Society",
-            ds_meta_data_id=tarantino_meta.id
+        feature_model = FeatureModel(
+            data_set_id=scifi_dataset.id,
+            fm_meta_data_id=fm_meta.id
         )
-        db.session.add(tarantino_author)
+        db.session.add(feature_model)
         db.session.flush()
 
-        tarantino_dataset = MovieDataset(
-            ds_meta_data_id=tarantino_meta.id,
-            user_id=user2.id,
-            dataset_type="movie",
-            created_at=datetime.now(timezone.utc)
-        )
-        db.session.add(tarantino_dataset)
-        db.session.flush()
-
-        with open(os.path.join(src_folder, "movies2.json"), 'r', encoding='utf-8') as f:
-            tarantino_movies_data = json.load(f)
-
-        tarantino_movies = [
-            Movie(movie_dataset_id=tarantino_dataset.id, **data)
-            for data in tarantino_movies_data
-        ]
-        db.session.add_all(tarantino_movies)
-        db.session.flush()
-
-
-        # ==============================
-        #  FILE MANAGEMENT (JSON files)
-        # ==============================
-
-        datasets_info = [
-            (scifi_dataset, "movies1.json"),
-            (tarantino_dataset, "movies2.json")
-        ]
-
-        hubfiles = []
-
-        for dataset, json_filename in datasets_info:
-
-            # Crear carpeta en uploads
-            dest_folder = os.path.join(
-                working_dir, "uploads",
-                f"user_{dataset.user_id}", f"dataset_{dataset.id}"
-            )
-            os.makedirs(dest_folder, exist_ok=True)
-
-            # Copiar archivo JSON
-            src_file = os.path.join(src_folder, json_filename)
-            dest_file = os.path.join(dest_folder, json_filename)
-            shutil.copy(src_file, dest_file)
-
-            # Hash del archivo
-            with open(dest_file, 'rb') as f:
-                file_hash = hashlib.md5(f.read()).hexdigest()
-
-            # FeatureModel metadata
-            fm_meta = FMMetaData(
-                filename=json_filename,
-                title=f"{dataset.ds_meta_data.title} - Data File",
-                description="Complete movie collection data in JSON format",
-                publication_type=PublicationType.OTHER,
-                tags="movie, json, collection",
-                version="1.0"
-            )
-            db.session.add(fm_meta)
-            db.session.flush()
-
-            # Author del feature model
-            fm_author = Author(
-                name=dataset.ds_meta_data.authors[0].name,
-                affiliation=dataset.ds_meta_data.authors[0].affiliation,
-                fm_meta_data_id=fm_meta.id
-            )
-            db.session.add(fm_author)
-            db.session.flush()
-
-            # FeatureModel entry
-            feature_model = FeatureModel(
-                data_set_id=dataset.id,
-                fm_meta_data_id=fm_meta.id
-            )
-            db.session.add(feature_model)
-            db.session.flush()
-
-            # Hubfile
-            hubfile = Hubfile(
-                name=json_filename,
+        db.session.add(
+            Hubfile(
+                name="movies1.json",
                 checksum=file_hash,
                 size=os.path.getsize(dest_file),
                 feature_model_id=feature_model.id
             )
-            hubfiles.append(hubfile)
-
-        db.session.add_all(hubfiles)
-        db.session.flush()
-
-        # Actualizar tamaño de archivos
-        scifi_dataset.update_files_info()
-        tarantino_dataset.update_files_info()
+        )
 
         db.session.commit()
 
+        # Crear registro en Fakenodo para que el dataset pertenezca y tenga estado
+        # (por defecto lo marcamos como 'published' dado que le asignamos dataset_doi)
+        scifi_fakenodo = Fakenodo(
+            status="published",
+            dataset_id=scifi_dataset.id,
+            dataset_file_path=scifi_folder,
+            doi=scifi_meta.dataset_doi
+        )
+        db.session.add(scifi_fakenodo)
+        db.session.commit()
 
+# ==============================
+# VERSIONES SCI-FI
+# ==============================
 
-        # ================================================
-        #  VERSIONING SECTION – REAL VERSIONS FOR TESTING
-        # ================================================
-
-        # -------- V1 ---------
+        # -------- V1 --------
         movie_service.create_version(scifi_dataset)
-        movie_service.create_version(tarantino_dataset)
 
+        # -------- V2 --------
+        # 1️⃣ Modificar una película existente
+        movie_to_modify = Movie.query.filter_by(
+            movie_dataset_id=scifi_dataset.id
+        ).first()
 
-        # =======================================
-        #     SCI-FI DATASET — EXTRA VERSIONS
-        # =======================================
+        movie_to_modify.director = "Ridley Scott (Edited)"
+        movie_to_modify.synopsis = "Updated synopsis in version 2"
 
-        # -------- V2: añadir película ---------
+        # 2️⃣ Añadir una película nueva
         new_movie = Movie(
             movie_dataset_id=scifi_dataset.id,
-            title="Interstellar",
-            original_title="Interstellar",
-            year=2014,
-            duration=169,
+            logical_id=generate_logical_id({
+                "title": "Blade Runner 2049",
+                "year": 2017,
+                "director": "Denis Villeneuve"
+            }),
+            title="Blade Runner 2049",
+            year=2017,
+            director="Denis Villeneuve",
             genre="Sci-Fi",
-            director="Christopher Nolan",
-            synopsis="A team travels through a wormhole in search of a new home.",
-            imdb_rating=8.6
+            imdb_rating=8.0
         )
         db.session.add(new_movie)
+
+        # 3️⃣ Modificar archivo movies1.json
+        with open(dest_file, "r", encoding="utf-8") as f:
+            content = json.load(f)
+
+        content.append({
+            "title": "Blade Runner 2049",
+            "year": 2017,
+            "director": "Denis Villeneuve"
+        })
+
+        with open(dest_file, "w", encoding="utf-8") as f:
+            json.dump(content, f, indent=4)
+
+        hubfile = Hubfile.query.filter_by(name="movies1.json").first()
+        hubfile.checksum = hashlib.md5(
+            json.dumps(content, sort_keys=True).encode("utf-8")
+        ).hexdigest()
+        hubfile.size = os.path.getsize(dest_file)
+
+        db.session.commit()
+        movie_service.create_version(scifi_dataset)
+
+        # -------- V3 --------
+        # 4️⃣ Eliminar una película
+        movie_to_delete = Movie.query.filter_by(
+            movie_dataset_id=scifi_dataset.id,
+            title="Blade Runner 2049"
+        ).first()
+
+        if movie_to_delete:
+            db.session.delete(movie_to_delete)
+
+        # 5️⃣ Añadir archivo nuevo
+        extra_movies = [
+            {"title": "Solaris", "year": 1972, "director": "Andrei Tarkovsky"}
+        ]
+
+        extra_file = os.path.join(scifi_folder, "extra_movies.json")
+        with open(extra_file, "w", encoding="utf-8") as f:
+            json.dump(extra_movies, f, indent=4)
+
+        file_hash = hashlib.md5(
+            json.dumps(extra_movies, sort_keys=True).encode("utf-8")
+        ).hexdigest()
+
+        fm_meta = FMMetaData(
+            filename="extra_movies.json",
+            title="Sci-Fi Extra Movies",
+            description="Added in version 3",
+            publication_type=PublicationType.OTHER,
+            tags="movies,json",
+            version="1.0"
+        )
+        db.session.add(fm_meta)
+        db.session.flush()
+
+        feature_model = FeatureModel(
+            data_set_id=scifi_dataset.id,
+            fm_meta_data_id=fm_meta.id
+        )
+        db.session.add(feature_model)
+        db.session.flush()
+
+        db.session.add(
+            Hubfile(
+                name="extra_movies.json",
+                checksum=file_hash,
+                size=os.path.getsize(extra_file),
+                feature_model_id=feature_model.id
+            )
+        )
+
+        db.session.commit()
+        movie_service.create_version(scifi_dataset)
+
+        # -------- V4 --------
+        # 6️⃣ Eliminar archivo movies1.json
+        if os.path.exists(dest_file):
+            os.remove(dest_file)
+
+        Hubfile.query.filter_by(name="movies1.json").delete()
         db.session.commit()
 
         movie_service.create_version(scifi_dataset)
 
-        # -------- V3: cambiar metadata ---------
-        scifi_dataset.ds_meta_data.title = "Sci-Fi Masterpieces (Updated)"
+
+        # ==========================================================
+        # DATASET 2 — CLASSIC CINEMA (SIMPLE, SIN VERSIONADO LOCO)
+        # ==========================================================
+        classic_meta = DSMetaData(
+            title="Classic Cinema Collection",
+            description="Timeless classic movies from the golden age of cinema",
+            publication_type=PublicationType.OTHER,
+            tags="movies, classic, cinema",
+            dataset_doi="10.1234/classic-cinema-2024"
+        )
+        db.session.add(classic_meta)
+        db.session.flush()
+
+        db.session.add(
+            Author(
+                name="Classic Film Archive",
+                affiliation="International Film Preservation Society",
+                ds_meta_data_id=classic_meta.id
+            )
+        )
+
+        classic_dataset = MovieDataset(
+            ds_meta_data_id=classic_meta.id,
+            user_id=user2.id,
+            dataset_type="movie",
+            created_at=datetime.now(timezone.utc)
+        )
+        db.session.add(classic_dataset)
+        db.session.flush()
+
+        with open(os.path.join(src_folder, "movies2.json"), "r", encoding="utf-8") as f:
+            classic_movies = json.load(f)
+
+        for data in classic_movies:
+            logical_id = data.get("logical_id") or generate_logical_id(data)
+            db.session.add(
+                Movie(
+                    movie_dataset_id=classic_dataset.id,
+                    logical_id=logical_id,
+                    **{k: v for k, v in data.items() if k != "logical_id"}
+                )
+            )
+
         db.session.commit()
 
-        movie_service.create_version(scifi_dataset)
+        # Carpeta classic
+        classic_folder = os.path.join(
+            working_dir,
+            "uploads",
+            f"user_{classic_dataset.user_id}",
+            f"dataset_{classic_dataset.id}"
+        )
+        os.makedirs(classic_folder, exist_ok=True)
 
-        # -------- V4: modificar primera película ---------
-        first_movie = scifi_dataset.movies[0]
-        first_movie.year = 1985
-        first_movie.imdb_rating = 9.1
+        src_file = os.path.join(src_folder, "movies2.json")
+        dest_file = os.path.join(classic_folder, "movies2.json")
+        shutil.copy(src_file, dest_file)
+
+        with open(dest_file, "rb") as f:
+            file_hash = hashlib.md5(f.read()).hexdigest()
+
+        fm_meta = FMMetaData(
+            filename="movies2.json",
+            title="Classic Movies File",
+            description="Classic cinema dataset file",
+            publication_type=PublicationType.OTHER,
+            tags="movies,json",
+            version="1.0"
+        )
+        db.session.add(fm_meta)
+        db.session.flush()
+
+        feature_model = FeatureModel(
+            data_set_id=classic_dataset.id,
+            fm_meta_data_id=fm_meta.id
+        )
+        db.session.add(feature_model)
+        db.session.flush()
+
+        db.session.add(
+            Hubfile(
+                name="movies2.json",
+                checksum=file_hash,
+                size=os.path.getsize(dest_file),
+                feature_model_id=feature_model.id
+            )
+        )
+
         db.session.commit()
 
-        movie_service.create_version(scifi_dataset)
-
-
-
-        # =======================================
-        #   TARANTINO DATASET — EXTRA VERSIONS
-        # =======================================
-
-        # -------- V2: actualizar descripción ---------
-        tarantino_dataset.ds_meta_data.description = "Updated collection description"
+        # Versión única (V1)
+        # Crear registro en Fakenodo para el dataset clásico como DRAFT
+        classic_fakenodo = Fakenodo(
+            status="draft",
+            dataset_id=classic_dataset.id,
+            dataset_file_path=classic_folder,
+            doi=classic_meta.dataset_doi
+        )
+        db.session.add(classic_fakenodo)
         db.session.commit()
 
-        movie_service.create_version(tarantino_dataset)
+        movie_service.create_version(classic_dataset)
 
-        # -------- V3: eliminar película ---------
-        movie_to_delete = tarantino_dataset.movies[0]
-        db.session.delete(movie_to_delete)
+        # ==========================================================
+        # DATASET 3 — DOCUMENTARIES (PEQUEÑO, PARA TEST/SEEDS)
+        # ==========================================================
+        doc_meta = DSMetaData(
+            title="Documentary Highlights",
+            description="A small curated set of notable documentaries",
+            publication_type=PublicationType.OTHER,
+            tags="movies,documentary,non-fiction",
+            dataset_doi="10.1234/documentary-2025",
+        )
+        db.session.add(doc_meta)
+        db.session.flush()
+
+        db.session.add(
+            Author(
+                name="Documentary Collective",
+                affiliation="Docs Org",
+                ds_meta_data_id=doc_meta.id
+            )
+        )
+
+        doc_dataset = MovieDataset(
+            ds_meta_data_id=doc_meta.id,
+            user_id=user2.id,
+            dataset_type="movie",
+            created_at=datetime.now(timezone.utc)
+        )
+        db.session.add(doc_dataset)
+        db.session.flush()
+
+        # Añadir una película de ejemplo
+        db.session.add(
+            Movie(
+                movie_dataset_id=doc_dataset.id,
+                logical_id=generate_logical_id({"title": "Planet Earth", "year": 2006, "director": "Alastair Fothergill"}),
+                title="Planet Earth",
+                year=2006,
+                director="Alastair Fothergill",
+                genre="Documentary",
+            )
+        )
+
         db.session.commit()
 
-        movie_service.create_version(tarantino_dataset)
+        # Crear carpeta uploads vacía para el dataset3 (no necesitamos archivos)
+        doc_folder = os.path.join(
+            working_dir,
+            "uploads",
+            f"user_{doc_dataset.user_id}",
+            f"dataset_{doc_dataset.id}"
+        )
+        os.makedirs(doc_folder, exist_ok=True)
 
-        print(" Movie datasets and versions seeded successfully!")
+        # Crear carpeta uploads vacía para el dataset3 (no necesitamos archivos)
+        doc_folder = os.path.join(
+            working_dir,
+            "uploads",
+            f"user_{doc_dataset.user_id}",
+            f"dataset_{doc_dataset.id}"
+        )
+        os.makedirs(doc_folder, exist_ok=True)
+
+        # Publicar este dataset creando un registro Fakenodo (status=published)
+        doc_fakenodo = Fakenodo(
+            status="published",
+            dataset_id=doc_dataset.id,
+            dataset_file_path=doc_folder,
+            doi=doc_meta.dataset_doi
+        )
+        db.session.add(doc_fakenodo)
+        db.session.commit()
+
+        movie_service.create_version(doc_dataset)
+        
+        # ==========================================================
+        # DATASET 4 
+        # ==========================================================
+        doc_meta = DSMetaData(
+            title=" Various Masterpieces",
+            description="A small curated set of some of the best movies all time",
+            publication_type=PublicationType.OTHER,
+            tags="movies,documentary,non-fiction",
+            dataset_doi="10.1234/documentary-2025",
+        )
+        db.session.add(doc_meta)
+        db.session.flush()
+
+        db.session.add(
+            Author(
+                name="Doe, John",
+                affiliation="University of Seville",
+                orcid="0000-0000-0000-0001",
+                ds_meta_data_id=doc_meta.id
+            )
+        )
+
+        doc_dataset = MovieDataset(
+            ds_meta_data_id=doc_meta.id,
+            user_id=user1.id,
+            dataset_type="movie",
+            created_at=datetime.now(timezone.utc),
+            community_id=ds.id
+        )
+        db.session.add(doc_dataset)
+        db.session.flush()
+
+        with open(os.path.join(src_folder, "movies3.json"), "r", encoding="utf-8") as f:
+            doc_movies_data = json.load(f)
+
+        for data in doc_movies_data:
+            logical_id = data.get("logical_id") or generate_logical_id(data)
+            db.session.add(
+                Movie(
+                    movie_dataset_id=doc_dataset.id,
+                    logical_id=logical_id,
+                    **{k: v for k, v in data.items() if k != "logical_id"}
+                )
+            )
+
+        db.session.commit()
+
+        # Crear carpeta uploads para el dataset3
+        doc_folder = os.path.join(
+            working_dir,
+            "uploads",
+            f"user_{doc_dataset.user_id}",
+            f"dataset_{doc_dataset.id}"
+        )
+        os.makedirs(doc_folder, exist_ok=True)
+
+        src_file = os.path.join(src_folder, "movies3.json")
+        dest_file = os.path.join(doc_folder, "movies3.json")
+        shutil.copy(src_file, dest_file)
+
+        with open(dest_file, "rb") as f:
+            file_hash = hashlib.md5(f.read()).hexdigest()
+
+        fm_meta_doc = FMMetaData(
+            filename="movies3.json",
+            title="Masterpiece Movies File",
+            description="Masterpieces dataset file",
+            publication_type=PublicationType.OTHER,
+            tags="movies,json",
+            version="1.0"
+        )
+        db.session.add(fm_meta_doc)
+        db.session.flush()
+
+        feature_model_doc = FeatureModel(
+            data_set_id=doc_dataset.id,
+            fm_meta_data_id=fm_meta_doc.id
+        )
+        db.session.add(feature_model_doc)
+        db.session.flush()
+
+        db.session.add(
+            Hubfile(
+                name="movies3.json",
+                checksum=file_hash,
+                size=os.path.getsize(dest_file),
+                feature_model_id=feature_model_doc.id
+            )
+        )
+
+        db.session.commit()
+
+        # Publicar este dataset creando un registro Fakenodo (status=published)
+        doc_fakenodo = Fakenodo(
+            status="published",
+            dataset_id=doc_dataset.id,
+            dataset_file_path=doc_folder,
+            doi=doc_meta.dataset_doi
+        )
+        db.session.add(doc_fakenodo)
+        db.session.commit()
+
+        movie_service.create_version(doc_dataset)
+
+        # EDICIONES 
+
+        movie_service.edit_metadata(
+            dataset=doc_dataset,
+            new_title="All ever Masterpieces",
+            new_description="Updated: A comprehensive collection of award-winning films",
+            new_tags="movies,documentary,awards,masterpieces",
+            user_id=user1.id,
+            comment="Changed title and added more descriptive tags"
+        )
+
+        new_authors_with_second = [
+            {
+                'name': 'Doe, John',
+                'affiliation': 'University of Seville',
+                'orcid': '0000-0000-0000-0001'
+            },
+            {
+                'name': 'Carmona, Alejandro', 
+                'affiliation': 'Global Documentary Institute',
+                'orcid': '0000-0000-0000-0002'
+            }
+        ]
+
+        movie_service.edit_authors(
+            dataset=doc_dataset,
+            new_authors=new_authors_with_second,
+            user_id=user1.id,
+            comment="Added second author to the team"
+        )
+
+        movie_service.edit_community(
+            dataset=doc_dataset,
+            new_community_id=ai.id,
+            user_id=user1.id,
+            comment="Moved to AI research community"
+        )
+
+        db.session.commit()
+        
+        

@@ -6,6 +6,7 @@ from flask_login import current_user
 from sqlalchemy import desc, func
 
 from app.modules.dataset.models import Author, DataSet, DOIMapping, DSDownloadRecord, DSMetaData, DSViewRecord
+from app.modules.fakenodo.models import Fakenodo
 from core.repositories.BaseRepository import BaseRepository
 
 logger = logging.getLogger(__name__)
@@ -23,6 +24,35 @@ class DSDownloadRecordRepository(BaseRepository):
     def total_dataset_downloads(self) -> int:
         max_id = self.model.query.with_entities(func.max(self.model.id)).scalar()
         return max_id if max_id is not None else 0
+    
+    def top_downloaded_datasets_last_month(self, limit: int = 3) -> list:
+        """
+        Retorna los datasets más descargados del último mes.
+        Cada elemento es una tupla (dataset_id, número_de_descargas)
+        """
+        from sqlalchemy import func
+        from datetime import datetime, timedelta
+        
+        # Fecha de hace un mes
+        one_month_ago = datetime.utcnow() - timedelta(days=30)
+        # Hacemos join con DataSet -> Fakenodo para asegurarnos de contar solo
+        # aquellos datasets que están publicados (Fakenodo.status == 'published').
+        # Usamos inner join: datasets sin registro en Fakenodo quedarán fuera.
+        result = (
+            self.model.query
+            .with_entities(
+                self.model.dataset_id,
+                func.count(self.model.id).label('download_count')
+            )
+            .join(Fakenodo, Fakenodo.dataset_id == self.model.dataset_id)
+            .filter(self.model.download_date >= one_month_ago, Fakenodo.status == "published")
+            .group_by(self.model.dataset_id)
+            .order_by(func.count(self.model.id).desc())
+            .limit(limit)
+            .all()
+        )
+
+        return result
 
 
 class DSMetaDataRepository(BaseRepository):

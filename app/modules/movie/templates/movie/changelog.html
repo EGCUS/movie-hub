@@ -1,0 +1,312 @@
+{% extends "base_template.html" %}
+
+{% block title %}Changelog - {{ dataset.ds_meta_data.title }}{% endblock %}
+
+{% block head_extra %}
+<style>
+    .timeline {
+        position: relative;
+        padding: 0;
+        list-style: none;
+    }
+
+    .timeline:before {
+        content: '';
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        width: 2px;
+        background: #e9ecef;
+        left: 30px;
+        margin-left: -1px;
+    }
+
+    .timeline-item {
+        position: relative;
+        margin-bottom: 30px;
+        padding-left: 60px;
+    }
+
+    .timeline-marker {
+        position: absolute;
+        left: 20px;
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        border: 2px solid #fff;
+        background: #007bff;
+        z-index: 1;
+    }
+
+    .timeline-marker.metadata { background: #17a2b8; }
+    .timeline-marker.authors { background: #ffc107; }
+    .timeline-marker.community { background: #6f42c1; } 
+    .timeline-marker.tags { background: #28a745; }
+
+    .timeline-content {
+        background: #fff;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+
+    .change-detail {
+        background: #f8f9fa;
+        padding: 10px;
+        border-radius: 5px;
+        margin: 10px 0;
+    }
+
+    .old-value {
+        text-decoration: line-through;
+        color: #dc3545;
+    }
+
+    .new-value {
+        color: #28a745;
+        font-weight: bold;
+    }
+
+    .badge-change-type {
+        font-size: 0.75rem;
+        padding: 0.35em 0.65em;
+    }
+
+    .author-removed {
+        background: #f8d7da;
+        border-left: 4px solid #dc3545;
+        padding: 8px 12px;
+        margin: 5px 0;
+        border-radius: 4px;
+    }
+
+    .author-added {
+        background: #d4edda;
+        border-left: 4px solid #28a745;
+        padding: 8px 12px;
+        margin: 5px 0;
+        border-radius: 4px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <a href="{{ url_for('movie.view_dataset', dataset_id=dataset.id) }}" class="btn btn-outline-secondary mb-3">
+                <i data-feather="arrow-left"></i> Back to Dataset
+            </a>
+            
+            <h2>
+                <i data-feather="clock"></i> Change History
+            </h2>
+            <p class="text-muted">{{ dataset.ds_meta_data.title }}</p>
+        </div>
+    </div>
+
+    <!-- Timeline -->
+    {% if changes %}
+    <ul class="timeline">
+        {% for change in changes %}
+        <li class="timeline-item">
+            <div class="timeline-marker {{ change.change_type }}"></div>
+            <div class="timeline-content">
+                <!-- Header -->
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                    <div>
+                        <span class="badge bg-primary badge-change-type">
+                            {{ change.change_type|upper }}
+                        </span>
+                        <small class="text-muted ms-2">
+                            <i data-feather="calendar"></i>
+                            {{ change.created_at.strftime('%B %d, %Y at %I:%M %p') }}
+                        </small>
+                    </div>
+                    <div>
+                        <small class="text-muted">
+                            <i data-feather="user"></i>
+                            {{ change.user.profile.name }} {{ change.user.profile.surname }}
+                        </small>
+                    </div>
+                </div>
+
+                <!-- Comment (if exists) -->
+                {% if change.comment %}
+                <div class="alert alert-secondary py-2 px-3 mb-2">
+                    <i data-feather="message-circle"></i>
+                    <em>"{{ change.comment }}"</em>
+                </div>
+                {% endif %}
+
+                <!-- Changes Details -->
+                <div class="mt-3">
+                    {% if change.change_type == 'metadata' %}
+                        <!-- Metadata changes -->
+                        {% for field, values in change.changes.items() %}
+                        <div class="change-detail">
+                            <strong>{{ field|title }}:</strong>
+                            <div class="mt-1">
+                                <div class="old-value">
+                                    <small>Old:</small> {{ values.old or '(empty)' }}
+                                </div>
+                                <div class="new-value">
+                                    <small>New:</small> {{ values.new or '(empty)' }}
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+
+                    {% elif change.change_type == 'authors' %}
+                        <!-- Author changes - NUEVA LÓGICA -->
+                        <div class="row">
+                            <!-- Autores eliminados (solo si hay) -->
+                            {% if change.changes.authors_removed and change.changes.authors_removed|length > 0 %}
+                            <div class="col-md-6">
+                                <h6 class="text-danger">
+                                    <i data-feather="user-minus"></i> Removed Authors:
+                                </h6>
+                                {% for author in change.changes.authors_removed %}
+                                <div class="author-removed">
+                                    <strong>{{ author.name }}</strong>
+                                    {% if author.affiliation %}
+                                        <br><small>({{ author.affiliation }})</small>
+                                    {% endif %}
+                                    {% if author.orcid %}
+                                        <br><small class="text-muted">ORCID: {{ author.orcid }}</small>
+                                    {% endif %}
+                                </div>
+                                {% endfor %}
+                            </div>
+                            {% endif %}
+
+                            <!-- Autores añadidos (solo si hay) -->
+                            {% if change.changes.authors_added and change.changes.authors_added|length > 0 %}
+                            <div class="col-md-6">
+                                <h6 class="text-success">
+                                    <i data-feather="user-plus"></i> Added Authors:
+                                </h6>
+                                {% for author in change.changes.authors_added %}
+                                <div class="author-added">
+                                    <strong>{{ author.name }}</strong>
+                                    {% if author.affiliation %}
+                                        <br><small>({{ author.affiliation }})</small>
+                                    {% endif %}
+                                    {% if author.orcid %}
+                                        <br><small class="text-muted">ORCID: {{ author.orcid }}</small>
+                                    {% endif %}
+                                </div>
+                                {% endfor %}
+                            </div>
+                            {% endif %}
+
+                            <!-- Mensaje si no hay cambios reales (no debería pasar) -->
+                            {% if (not change.changes.authors_removed or change.changes.authors_removed|length == 0) and (not change.changes.authors_added or change.changes.authors_added|length == 0) %}
+                            <div class="col-12">
+                                <p class="text-muted">
+                                    <i data-feather="info"></i>
+                                    No author changes detected (main author is protected)
+                                </p>
+                            </div>
+                            {% endif %}
+                        </div>
+
+                        {% elif change.change_type == 'community' %}
+                        <!-- Community change -->
+                        <div class="change-detail">
+                            <strong>Community:</strong>
+                            <div class="mt-1">
+                                <div class="old-value">
+                                    <small>Old:</small> {{ change.changes.old_community or '(No community)' }}
+                                </div>
+                                <div class="new-value">
+                                    <small>New:</small> {{ change.changes.new_community or '(No community)' }}
+                                </div>
+                            </div>
+                        </div>
+
+
+                    {% elif change.change_type == 'tags' %}
+                        <!-- Tag changes -->
+                        <div class="change-detail">
+                            <div>
+                                <strong>Old tags:</strong>
+                                <span class="old-value">{{ change.changes.old or '(no tags)' }}</span>
+                            </div>
+                            <div class="mt-2">
+                                <strong>New tags:</strong>
+                                <span class="new-value">{{ change.changes.new or '(no tags)' }}</span>
+                            </div>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </li>
+        {% endfor %}
+    </ul>
+
+    {% else %}
+    <!-- No changes yet -->
+    <div class="card">
+        <div class="card-body text-center py-5">
+            <i data-feather="inbox" style="width: 64px; height: 64px; color: #6c757d;"></i>
+            <h5 class="mt-3 text-muted">No changes recorded yet</h5>
+            <p class="text-muted">This dataset hasn't been edited since publication.</p>
+            
+            {% if current_user.is_authenticated and current_user.id == dataset.user_id %}
+            <a href="{{ url_for('movie.edit_dataset_metadata', dataset_id=dataset.id) }}" class="btn btn-primary mt-3">
+                <i data-feather="edit"></i> Make Your First Edit
+            </a>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Summary Statistics -->
+    {% if changes %}
+    <div class="card mt-4">
+        <div class="card-body">
+            <h5>Summary</h5>
+            <div class="row text-center">
+                <div class="col-md-3">
+                    <div class="p-3">
+                        <h3 class="text-primary">{{ changes|length }}</h3>
+                        <small class="text-muted">Total Edits</small>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="p-3">
+                        <h3 class="text-info">
+                            {{ changes|selectattr('change_type', 'equalto', 'metadata')|list|length }}
+                        </h3>
+                        <small class="text-muted">Metadata Changes</small>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="p-3">
+                        <h3 class="text-warning">
+                            {{ changes|selectattr('change_type', 'equalto', 'authors')|list|length }}
+                        </h3>
+                        <small class="text-muted">Author Updates</small>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                <div class="p-3">
+                    <h3 class="text-purple">
+                        {{ changes|selectattr('change_type', 'equalto', 'community')|list|length }}
+                    </h3>
+                    <small class="text-muted">Community Changes</small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+</div>
+
+
+<script>
+    feather.replace();
+</script>
+{% endblock %}

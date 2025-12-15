@@ -1,14 +1,18 @@
 import hashlib
+import os
 
 from app.modules.fakenodo.repositories import FakenodoRepository
+from app import db
 from core.services.BaseService import BaseService
 from app.modules.movie.models import MovieDataset, BaseDataset
 from app.modules.featuremodel.models import FeatureModel
 from app.modules.fakenodo.models import Fakenodo
+from app.modules.dataset.services import SizeService
 import uuid
 import logging
 
 logger = logging.getLogger(__name__)
+
 
 class FakenodoService(BaseService):
     def __init__(self):
@@ -19,8 +23,12 @@ class FakenodoService(BaseService):
             logger.info(f"Creating Fakenodo for dataset ID {dataset.id}...")
 
             fakenodo = self.repository.create_new_fakenodo(dataset_id=dataset.id)
+            deposition_id = fakenodo.id 
 
             fakenodo_response = {
+                "id": fakenodo.id,
+                "fakenodo_doi": fakenodo.doi,
+                "deposition_id": deposition_id,
                 "dataset_metadata": dataset.ds_meta_data.to_dict(),
                 "status": fakenodo.status
             }
@@ -31,11 +39,7 @@ class FakenodoService(BaseService):
             logger.exception("Error creating Fakenodo record.")
             raise Exception(f"Failed to create Fakenodo record: {str(error)}")
 
-        
-    def upload_dataset(self, fakenodo_id, dataset=MovieDataset, feature_model=FeatureModel):
-        #TO-DO: funcion suba un fichero al reposiotrio de datasets
-        pass
-    
+
     def publish_fakenodo(self, fakenodo_id):
         fakenodo = self.get_by_id(fakenodo_id)
         if not fakenodo:
@@ -52,30 +56,37 @@ class FakenodoService(BaseService):
         self.update(fakenodo.id, status=fakenodo.status, doi=fakenodo.doi)
 
         return fakenodo
-    
+
     def get_fakenodo(self, fakenodo_id):
         fakenodo = Fakenodo.query.get(fakenodo_id)
         if not fakenodo:
             raise FileNotFoundError("Fakenodo object not found")
+        
+        change_logs = [
+        log.to_dict() for log in fakenodo.dataset.change_logs
+    ]
         response = {
+            "fakenodo_doi": fakenodo.doi,
+            "deposition_id": fakenodo.id,
             "dataset_metadata": fakenodo.dataset.ds_meta_data.to_dict(),
             "status": fakenodo.status,
+            "minor_change_logs": change_logs
         }
         return response
-        
-    
+
     def get_doi_versions(self, fakenodo_id):
+
         fakenodo = Fakenodo.query.get(fakenodo_id)
         if not fakenodo:
             raise FileNotFoundError("Fakenodo object not found")
         response = {
             "version-list": fakenodo.dataset.versions.__repr__(),
             "current-version": fakenodo.dataset.current_version,
-            "doi": fakenodo.dataset.ds_meta_data.dataset_doi,
+            "doi": fakenodo.doi,
         }
         return response
     
-    def checksum(fileName):
+    def checksum(self, fileName):
         try:
             with open(fileName, "rb") as file:
                 file_content = file.read()
@@ -85,3 +96,58 @@ class FakenodoService(BaseService):
             raise Exception(f"File {fileName} not found for checksum calculation")
         except Exception as e:
             raise Exception(f"Error calculating checksum for file {fileName}: {str(e)}")
+        
+        
+    def upload_file_to_fakenodo(self, fakenodo_id: int, file_content: bytes, filename: str, dataset_id: int):
+        """
+        Upload a file to Fakenodo (mock external service).
+        
+        Args:
+            fakenodo_id: ID of the Fakenodo record
+            file_content: Binary content of the file
+            filename: Name of the file
+            dataset_id: ID of the dataset
+            
+        Returns:
+            dict with file info
+        """
+        fakenodo = self.get_by_id(fakenodo_id)
+        if not fakenodo:
+            raise ValueError(f"Fakenodo with ID {fakenodo_id} not found")
+
+        fakenodo_folder = os.path.join("datasets", f"fakenodo_{fakenodo_id}", f"dataset_{dataset_id}")
+        os.makedirs(fakenodo_folder, exist_ok=True)
+        file_path = os.path.join(fakenodo_folder, filename)
+
+        # Save the file
+        with open(file_path, "wb") as f:
+            f.write(file_content)
+
+        # Validate integrity
+        checksum = hashlib.md5(file_content).hexdigest()
+        with open(file_path, "rb") as f:
+            if hashlib.md5(f.read()).hexdigest() != checksum:
+                raise Exception(f"Corrupted file detected in Fakenodo copy of '{filename}'")
+
+        #Update Fakenodo
+        fakenodo.dataset_file_path = fakenodo_folder
+        fakenodo.status = "draft"
+        self.update(
+            fakenodo.id,
+            dataset_file_path=fakenodo.dataset_file_path,
+            status=fakenodo.status
+        )
+        return {
+            "fakenodo_id": fakenodo_id,
+            "dataset_id": dataset_id,
+            "file_path": file_path,
+            "checksum": checksum,
+            "status": fakenodo.status
+        }
+
+        
+        
+
+
+
+            
