@@ -9,11 +9,11 @@
 
 Miembro del equipo  | Horas | Commits | LoC | Test | Issues | Work Item| Dificultad
 ------------- | ------------- | ------------- | ------------- | ------------- | ------------- |  ------------- |  ------------- | 
-[Adame Mantecón, Manuel](https://github.com/ManuelAdame) | 10 | 8 | +601/-110 | 6 | 4 | Enviar un correo electrónico de verificación cuando un nuevo usuario se registra, para confirmar que la dirección de correo electrónico es válida | L |
-[Buzón Muñoz, Manuel Zoilo](https://github.com/manumnzz) | 25 | 13 | +2159/-751 | 13 | 7 | Permite comparar versiones de un dataset para identificar qué ha cambiado entre ellas | H |
+[Adame Mantecón, Manuel](https://github.com/ManuelAdame) | 50 | 8 | +601/-110 | 6 | 4 | Enviar un correo electrónico de verificación cuando un nuevo usuario se registra, para confirmar que la dirección de correo electrónico es válida | L |
+[Buzón Muñoz, Manuel Zoilo](https://github.com/manumnzz) | 60 | 13 | +2159/-751 | 13 | 7 | Permite comparar versiones de un dataset para identificar qué ha cambiado entre ellas | H |
 [Carmona Reina, Alejandro](https://github.com/aleecar04) | 70 | 44 | +8236/-2966 | 39 | 18 | Permitir cambios menores en los datasets que no impliquen cambios en los archivos ni en el contenido sustancial, siguiendo el modelo Zenodo. Estos cambios no generan un nuevo DOI, sino que actualizan el conjunto de datos existente | H |
 [Granado Oliva, Samuel](https://github.com/SamuelGRA) | 65 | 44 | +2950/-1793 | 7 | 32 | Limitar los intentos fallidos de inicio de sesión para evitar ataques de fuerza bruta | L |
-[Lavado Corredera, Manuel](https://github.com/60Manu82) | 15 | 10 | +975/-256 | 17 | 6 | Filtrado de los resultados de búsqueda por comunidad, para centrarse en conjuntos de datos de un tema o institución específicos | M |
+[Lavado Corredera, Manuel](https://github.com/60Manu82) | 30 | 10 | +975/-256 | 17 | 6 | Filtrado de los resultados de búsqueda por comunidad, para centrarse en conjuntos de datos de un tema o institución específicos | M |
 [Román Jiménez, Darío](https://github.com/DarioRJ17) | 65 | 28 | +2324/-983 | 30 | 23 | Una clasificación de los datasets más vistos o descargados recientemente para descubrir qué es popular en la plataforma | M |
 **TOTAL** | 250  | 147 | +17245/-6859 | 112 | 90 | Se han realizado 8 work items en total, 2 de cada dificultad. Además de los 2 work items obligatorios, fakenodo y newdataset | H(2)/M(2)/L(2) |
 
