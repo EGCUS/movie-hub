@@ -40,6 +40,7 @@
 
     .timeline-marker.metadata { background: #17a2b8; }
     .timeline-marker.authors { background: #ffc107; }
+    .timeline-marker.community { background: #6f42c1; } 
     .timeline-marker.tags { background: #28a745; }
 
     .timeline-content {
@@ -211,6 +212,21 @@
                             {% endif %}
                         </div>
 
+                        {% elif change.change_type == 'community' %}
+                        <!-- Community change -->
+                        <div class="change-detail">
+                            <strong>Community:</strong>
+                            <div class="mt-1">
+                                <div class="old-value">
+                                    <small>Old:</small> {{ change.changes.old_community or '(No community)' }}
+                                </div>
+                                <div class="new-value">
+                                    <small>New:</small> {{ change.changes.new_community or '(No community)' }}
+                                </div>
+                            </div>
+                        </div>
+
+
                     {% elif change.change_type == 'tags' %}
                         <!-- Tag changes -->
                         <div class="change-detail">
@@ -253,13 +269,13 @@
         <div class="card-body">
             <h5>Summary</h5>
             <div class="row text-center">
-                <div class="col-md-4">
+                <div class="col-md-3">
                     <div class="p-3">
                         <h3 class="text-primary">{{ changes|length }}</h3>
                         <small class="text-muted">Total Edits</small>
                     </div>
                 </div>
-                <div class="col-md-4">
+                <div class="col-md-3">
                     <div class="p-3">
                         <h3 class="text-info">
                             {{ changes|selectattr('change_type', 'equalto', 'metadata')|list|length }}
@@ -267,7 +283,7 @@
                         <small class="text-muted">Metadata Changes</small>
                     </div>
                 </div>
-                <div class="col-md-4">
+                <div class="col-md-3">
                     <div class="p-3">
                         <h3 class="text-warning">
                             {{ changes|selectattr('change_type', 'equalto', 'authors')|list|length }}
@@ -275,11 +291,20 @@
                         <small class="text-muted">Author Updates</small>
                     </div>
                 </div>
+                <div class="col-md-3">
+                <div class="p-3">
+                    <h3 class="text-purple">
+                        {{ changes|selectattr('change_type', 'equalto', 'community')|list|length }}
+                    </h3>
+                    <small class="text-muted">Community Changes</small>
+                </div>
             </div>
         </div>
     </div>
-    {% endif %}
 </div>
+{% endif %}
+</div>
+
 
 <script>
     feather.replace();

@@ -558,6 +558,27 @@ class MovieService(BaseService):
         self.log_changelog(dataset.id, user_id, 'authors', changes, comment)
 
         return True
+    
+    def edit_community(self, dataset: MovieDataset, new_community_id: int, user_id: int, comment: str = None) -> bool:
+        """Edita la comunidad asociada al dataset"""
+        from app.modules.community.models import Community
+        
+        # Obtener comunidad actual
+        old_community_id = dataset.community_id
+        old_community_name = Community.query.get(old_community_id).name if old_community_id else None
+        new_community_name = Community.query.get(new_community_id).name if new_community_id else None
+        if old_community_id == new_community_id:
+            return False
+    
+        dataset.community_id = new_community_id if new_community_id != 0 else None
+        changes = {
+            'old_community': old_community_name,
+            'new_community': new_community_name
+        }
+        
+        self.log_changelog(dataset.id, user_id, 'community', changes, comment)
+        
+        return True
 
 
     def validate_authors(self, old: list, new: list):

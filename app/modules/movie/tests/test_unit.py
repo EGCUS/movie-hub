@@ -680,15 +680,18 @@ def test_edit_dataset_metadata_forbidden(mock_get_dataset, test_client):
 # POST /moviedataset/<id>/edit
 # ========================================
 
+@patch("app.modules.movie.routes.Community")
+@patch("app.modules.movie.routes.movie_service.edit_community")
 @patch("app.modules.movie.routes.movie_service.edit_authors")
 @patch("app.modules.movie.routes.movie_service.edit_metadata")
 @patch("app.modules.movie.routes.movie_service.get_moviedataset")
-def test_edit_dataset_metadata_post(mock_get_dataset, mock_edit_metadata, mock_edit_authors, test_client):
+def test_edit_dataset_metadata_post(mock_get_dataset, mock_edit_metadata, mock_edit_authors, mock_edit_community, mock_community, test_client):
     """Editar metadata de un dataset"""
     
     mock_dataset = MagicMock()
     mock_dataset.id = 5
     mock_dataset.user_id = 1
+    mock_dataset.community_id = 0
     mock_dataset.ds_meta_data.title = "Old Title"
     mock_dataset.ds_meta_data.description = "Old Desc"
     mock_dataset.ds_meta_data.tags = "old"
@@ -696,12 +699,19 @@ def test_edit_dataset_metadata_post(mock_get_dataset, mock_edit_metadata, mock_e
     mock_author = MagicMock()
     mock_author.name = "Doe, John"
     mock_author.affiliation = "Uni"
-    mock_author.orcid = ""
+    mock_author.orcid = "0000-0000-0000-0000"  # ← Agregar ORCID por defecto
     mock_dataset.ds_meta_data.authors = [mock_author]
     
     mock_get_dataset.return_value = mock_dataset
     mock_edit_metadata.return_value = {"title": {"old": "Old Title", "new": "New Title"}}
     mock_edit_authors.return_value = True
+    mock_edit_community.return_value = False
+    
+    # ← Mock de Community.query para el constructor del form
+    mock_community_obj = MagicMock()
+    mock_community_obj.id = 1
+    mock_community_obj.name = "Test Community"
+    mock_community.query.order_by.return_value.all.return_value = [mock_community_obj]
     
     with patch("flask_login.utils._get_user") as mock_current_user:
         mock_user = MagicMock()
@@ -713,10 +723,11 @@ def test_edit_dataset_metadata_post(mock_get_dataset, mock_edit_metadata, mock_e
             'title': 'New Title',
             'desc': 'New Description',
             'tags': 'new, tags',
+            'community_id': '0',  # ← Agregar community_id
             'edit_comment': 'Updated metadata',
             'authors-0-name': 'Doe, John',
             'authors-0-affiliation': 'Uni',
-            'authors-0-orcid': ''
+            'authors-0-orcid': '0000-0000-0000-0000'  # ← Agregar ORCID
         }
         
         response = test_client.post(
@@ -729,7 +740,7 @@ def test_edit_dataset_metadata_post(mock_get_dataset, mock_edit_metadata, mock_e
     assert "/moviedataset/5" in response.location
     mock_edit_metadata.assert_called_once()
     mock_edit_authors.assert_called_once()
-
+    mock_edit_community.assert_called_once()
 
 @patch("app.modules.movie.routes.movie_service.upload_draft_dataset")
 @patch("app.modules.movie.routes.Community")

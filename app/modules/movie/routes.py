@@ -468,6 +468,8 @@ def edit_dataset_metadata(dataset_id):
         form.title.data = dataset.ds_meta_data.title
         form.desc.data = dataset.ds_meta_data.description
         form.tags.data = dataset.ds_meta_data.tags
+        
+        form.community_id.data = dataset.community_id if dataset.community_id else 0
 
         # Prellenar autores
         while len(form.authors) > 0:
@@ -482,10 +484,7 @@ def edit_dataset_metadata(dataset_id):
 
     if form.validate_on_submit():
         try:
-
             new_authors = form.get_authors()
-
-            # Proteger primer autor
             main = dataset.ds_meta_data.authors[0]
             new_authors[0] = {'name': main.name, 'affiliation': main.affiliation, 'orcid': main.orcid}
 
@@ -497,18 +496,22 @@ def edit_dataset_metadata(dataset_id):
             authors_changed = movie_service.edit_authors(
                 dataset, new_authors, current_user.id, form.edit_comment.data
             )
+            
+            community_changed = movie_service.edit_community(
+                dataset, form.community_id.data, current_user.id, form.edit_comment.data
+            )
 
             db.session.commit()
 
-            flash('Dataset updated successfully!' if (metadata_changed or authors_changed)
-                  else 'No changes made', 'success' if (metadata_changed or authors_changed) else 'info')
+            flash('Dataset updated successfully!' if (metadata_changed or authors_changed or community_changed)
+                  else 'No changes made', 
+                  'success' if (metadata_changed or authors_changed or community_changed) else 'info')
 
             return redirect(url_for('movie.view_dataset', dataset_id=dataset.id))
 
         except ValueError as e:
             db.session.rollback()
             flash(str(e), 'warning')
-
         except Exception as e:
             db.session.rollback()
             logger.exception("Error editing dataset")

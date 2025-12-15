@@ -51,6 +51,22 @@
                     <small class="text-muted">Separate with commas</small>
                 </div>
 
+                <div class="mb-3">
+                    <label class="form-label"><strong>Community</strong></label>
+                    {{ form.community_id(class="form-select") }}
+                    <small class="text-muted">
+                        <i data-feather="info"></i> 
+                        Select a community to associate this dataset with
+                    </small>
+                    {% if dataset.community %}
+                        <div class="mt-2">
+                            <span class="badge bg-secondary">
+                                Current: {{ dataset.community.name }}
+                            </span>
+                        </div>
+                    {% endif %}
+                </div>
+
                 <div class="mb-4">
                     <label class="form-label"><strong>Authors *</strong></label>
                     
@@ -83,7 +99,7 @@
                                             <label>ORCID</label>
                                             {{ author_form.form.orcid(
                                                 class="form-control",
-                                                placeholder="0000-0000-0000",
+                                                placeholder="0000-0000-0000-0000",
                                                 readonly=(loop.index0 == 0)
                                             ) }}
                                         </div>
@@ -151,7 +167,7 @@ document.getElementById('add-author').addEventListener('click', function() {
                     </div>
                     <div class="col-md-3">
                         <label>ORCID</label>
-                        <input type="text" name="authors-${authorIndex}-orcid" class="form-control" placeholder="0000-0000-0000">
+                        <input type="text" name="authors-${authorIndex}-orcid" class="form-control" placeholder="0000-0000-0000-0000">
                     </div>
                     <div class="col-md-1 d-flex align-items-end">
                         <button type="button" class="btn btn-danger btn-sm remove-author">

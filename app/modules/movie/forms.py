@@ -4,6 +4,7 @@ from flask_wtf.file import FileField, FileRequired, FileAllowed, MultipleFileFie
 from jsonschema import ValidationError
 from wtforms import FieldList, FormField, SelectField, StringField, SubmitField, TextAreaField
 from wtforms.validators import DataRequired, Optional, Length, ValidationError as WTFormsValidationError
+from app.modules.community.models import Community
 from app.modules.dataset.models import PublicationType
 
 
@@ -15,11 +16,15 @@ def validate_author_name(form, field):
 
 
 def validate_orcid(form, field):
-    if not field.data:  # Si está vacío, es opcional
+    if not field.data or field.data.strip() == '':
         return
-    orcid_pattern = r'^\d{4}-\d{4}-\d{4}$'
+    
+    if field.data.strip() == '0000-0000-0000-0000':
+        return
+    
+    orcid_pattern = r'^\d{4}-\d{4}-\d{4}-\d{4}$'
     if not re.match(orcid_pattern, field.data.strip()):
-        raise WTFormsValidationError("El ORCID debe tener el formato XXXX-XXXX-XXXX")
+        raise WTFormsValidationError("El ORCID debe tener el formato XXXX-XXXX-XXXX-XXXX con dígitos")
 
 
 class AuthorForm(FlaskForm):
@@ -35,7 +40,7 @@ class AuthorForm(FlaskForm):
     orcid = StringField(
         "ORCID", 
         validators=[Optional(), validate_orcid],
-        description="Formato: XXXX-XXXX-XXXX"
+        description="Formato: XXXX-XXXX-XXXX-XXXX"
     )
 
     def get_author(self):
@@ -44,11 +49,15 @@ class AuthorForm(FlaskForm):
             name = self.format_author_name(self.name.data)
         except ValueError as e:
             raise ValidationError(str(e))
+        
+        orcid_value = self.orcid.data.strip() if self.orcid.data else ''
+        if not orcid_value or orcid_value == '':
+            orcid_value = '0000-0000-0000-0000'
 
         return {
             "name": name,
             "affiliation": self.affiliation.data.strip() if self.affiliation.data else None,
-            "orcid": self.orcid.data.strip() if self.orcid.data else None,
+            "orcid": orcid_value,
         }
 
     def format_author_name(self, name: str) -> str:
@@ -162,6 +171,12 @@ class MovieEditMetadataForm(FlaskForm):
     desc = TextAreaField("Description", validators=[DataRequired()])
     tags = StringField("Tags (separated by commas)", validators=[DataRequired()]) #Al menos incluir una tag
     authors = FieldList(FormField(AuthorForm), min_entries=1)
+    
+    community_id = SelectField(
+        "Community",
+        coerce=int,
+        validators=[Optional()]
+    )
 
     edit_comment = TextAreaField(
         "Edit Comment",
@@ -170,6 +185,13 @@ class MovieEditMetadataForm(FlaskForm):
     )
 
     submit = SubmitField("Save Changes")
+    
+    def __init__(self, *args, **kwargs):
+        """Constructor que carga las comunidades automáticamente"""
+        super(MovieEditMetadataForm, self).__init__(*args, **kwargs)
+        communities = Community.query.order_by(Community.name.asc()).all()
+        self.community_id.choices = [(0, "-- No Community --")] + [(c.id, c.name) for c in communities]
 
+    
     def get_authors(self):
         return [author.get_author() for author in self.authors]

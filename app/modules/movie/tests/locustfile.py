@@ -331,10 +331,13 @@ class MovieDatasetBehavior(TaskSet):
 
             for link in links:
                 href = link["href"]
-                # Queremos solo: /moviedataset/<id>
+                # Queremos solo: /moviedataset/<id> donde <id> es numérico
                 if href.startswith("/moviedataset/") and href.count("/") == 2:
-                    self.last_dataset_id = href.rstrip("/").split("/")[-1]
-                    break
+                    potential_id = href.rstrip("/").split("/")[-1]
+                    # 👇 VALIDAR QUE SEA NUMÉRICO
+                    if potential_id.isdigit():
+                        self.last_dataset_id = potential_id
+                        break
 
         except Exception:
             self.last_dataset_id = None
@@ -464,7 +467,7 @@ class MovieDatasetBehavior(TaskSet):
             f"/moviedataset/{dataset_id}/edit",
             name="/moviedataset/[id]/edit",
             catch_response=True
-        ) as response:  # ← AÑADE "as response:"
+        ) as response:
             
             if response.status_code != 200:
                 response.failure("GET failed")
@@ -472,7 +475,6 @@ class MovieDatasetBehavior(TaskSet):
             
             soup = BeautifulSoup(response.text, 'html.parser')
             
-            # Obtener el primer autor (no se puede editar)
             author0_name = soup.find('input', {'id': 'authors-0-name'})
             if not author0_name:
                 response.failure("No se encontró el primer autor")
@@ -480,15 +482,29 @@ class MovieDatasetBehavior(TaskSet):
             
             first_author_name = author0_name.get('value', '')
             
+            csrf_token = get_csrf_token(response)
+            if not csrf_token:
+                response.failure("No CSRF token found")
+                return
+            
+            community_select = soup.find('select', {'id': 'community_id'})
+            current_community = '0'
+            if community_select:
+                selected = community_select.find('option', selected=True)
+                if selected:
+                    current_community = selected.get('value', '0')
+            
             edit_data = {
                 "title": "Título Editado por Locust",
                 "desc": "Descripción editada",
                 "tags": "test,locust",
+                "community_id": current_community,
                 "edit_comment": "Test de Locust",
+                "csrf_token": csrf_token,
                 
                 "authors-0-name": first_author_name,
                 "authors-0-affiliation": "",
-                "authors-0-orcid": "",
+                "authors-0-orcid": "0000-0000-0000-0000",
             }
             
             with self.client.post(
