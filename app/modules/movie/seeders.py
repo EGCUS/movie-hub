@@ -456,3 +456,168 @@ class MovieSeeder(BaseSeeder):
         db.session.commit()
 
         movie_service.create_version(doc_dataset)
+        
+        # ==========================================================
+        # DATASET 3 — DOCUMENTARIES (PEQUEÑO, PARA TEST/SEEDS)
+        # ==========================================================
+        doc_meta = DSMetaData(
+            title="Documentary Highlights",
+            description="A small curated set of notable documentaries",
+            publication_type=PublicationType.OTHER,
+            tags="movies,documentary,non-fiction",
+            dataset_doi="10.1234/documentary-2025",
+        )
+        db.session.add(doc_meta)
+        db.session.flush()
+
+        db.session.add(
+            Author(
+                name="Documentary Collective",
+                affiliation="Docs Org",
+                orcid="0000-0000-0000-0001",
+                ds_meta_data_id=doc_meta.id
+            )
+        )
+
+        doc_dataset = MovieDataset(
+            ds_meta_data_id=doc_meta.id,
+            user_id=user1.id,
+            dataset_type="movie",
+            created_at=datetime.now(timezone.utc),
+            community_id=ds.id
+        )
+        db.session.add(doc_dataset)
+        db.session.flush()
+
+        with open(os.path.join(src_folder, "movies3.json"), "r", encoding="utf-8") as f:
+            doc_movies_data = json.load(f)
+
+        for data in doc_movies_data:
+            logical_id = data.get("logical_id") or generate_logical_id(data)
+            db.session.add(
+                Movie(
+                    movie_dataset_id=doc_dataset.id,
+                    logical_id=logical_id,
+                    **{k: v for k, v in data.items() if k != "logical_id"}
+                )
+            )
+
+        db.session.commit()
+
+        # Crear carpeta uploads para el dataset3
+        doc_folder = os.path.join(
+            working_dir,
+            "uploads",
+            f"user_{doc_dataset.user_id}",
+            f"dataset_{doc_dataset.id}"
+        )
+        os.makedirs(doc_folder, exist_ok=True)
+
+        src_file = os.path.join(src_folder, "movies3.json")
+        dest_file = os.path.join(doc_folder, "movies3.json")
+        shutil.copy(src_file, dest_file)
+
+        with open(dest_file, "rb") as f:
+            file_hash = hashlib.md5(f.read()).hexdigest()
+
+        fm_meta_doc = FMMetaData(
+            filename="movies3.json",
+            title="Documentary Movies File",
+            description="Documentary dataset file",
+            publication_type=PublicationType.OTHER,
+            tags="movies,json",
+            version="1.0"
+        )
+        db.session.add(fm_meta_doc)
+        db.session.flush()
+
+        feature_model_doc = FeatureModel(
+            data_set_id=doc_dataset.id,
+            fm_meta_data_id=fm_meta_doc.id
+        )
+        db.session.add(feature_model_doc)
+        db.session.flush()
+
+        db.session.add(
+            Hubfile(
+                name="movies3.json",
+                checksum=file_hash,
+                size=os.path.getsize(dest_file),
+                feature_model_id=feature_model_doc.id
+            )
+        )
+
+        db.session.commit()
+
+        # Publicar este dataset creando un registro Fakenodo (status=published)
+        doc_fakenodo = Fakenodo(
+            status="published",
+            dataset_id=doc_dataset.id,
+            dataset_file_path=doc_folder,
+            doi=doc_meta.dataset_doi
+        )
+        db.session.add(doc_fakenodo)
+        db.session.commit()
+
+        movie_service.create_version(doc_dataset)
+
+        # EDICIONES 
+
+        movie_service.edit_metadata(
+            dataset=doc_dataset,
+            new_title="Documentary Masterpieces",
+            new_description="Updated: A comprehensive collection of award-winning documentaries",
+            new_tags="movies,documentary,awards,masterpieces",
+            user_id=user1.id,
+            comment="Changed title and added more descriptive tags"
+        )
+
+        new_authors_with_second = [
+            {
+                'name': 'Documentary Collective',
+                'affiliation': 'Docs Org',
+                'orcid': '0000-0000-0000-0001'
+            },
+            {
+                'name': 'Film Archive Team', 
+                'affiliation': 'Global Documentary Institute',
+                'orcid': '0000-0000-0000-0002'
+            }
+        ]
+
+        movie_service.edit_authors(
+            dataset=doc_dataset,
+            new_authors=new_authors_with_second,
+            user_id=user1.id,
+            comment="Added second author to the team"
+        )
+
+        movie_service.edit_community(
+            dataset=doc_dataset,
+            new_community_id=ai.id,
+            user_id=user1.id,
+            comment="Moved to AI research community"
+        )
+        
+        new_authors_updated = [
+            {
+                'name': 'Documentary Collective',
+                'affiliation': 'International Documentary Foundation',  # 👈 Cambiado
+                'orcid': '0000-0000-0000-0099'  # 👈 Cambiado
+            },
+            {
+                'name': 'Film Archive Team',
+                'affiliation': 'Global Documentary Institute',
+                'orcid': '0000-0000-0000-0002'
+            }
+        ]
+
+        movie_service.edit_authors(
+            dataset=doc_dataset,
+            new_authors=new_authors_updated,
+            user_id=user1.id,
+            comment="Updated main author affiliation and ORCID"
+        )
+
+        db.session.commit()
+
