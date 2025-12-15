@@ -731,3 +731,272 @@ def test_edit_dataset_metadata_post(mock_get_dataset, mock_edit_metadata, mock_e
     mock_edit_authors.assert_called_once()
 
 
+@patch("app.modules.movie.routes.movie_service.upload_draft_dataset")
+@patch("app.modules.movie.routes.Community")
+def test_upload_dataset_with_existing_community_id(mock_community_model, mock_upload_draft, test_client):
+    mock_dataset = MagicMock()
+    mock_dataset.id = 30
+    mock_upload_draft.return_value = (mock_dataset, 1, 111)
+
+    c1 = MagicMock()
+    c1.id = 7
+    c1.name = "Existing"
+    mock_community_model.query.order_by.return_value.all.return_value = [c1]
+
+    with patch("flask_login.utils._get_user") as mock_current_user:
+        u = MagicMock()
+        u.is_authenticated = True
+        u.id = 1
+        u.profile.name = "John"
+        u.profile.surname = "Doe"
+        u.profile.affiliation = ""
+        u.profile.orcid = ""
+        mock_current_user.return_value = u
+
+        data = {
+            "action": "draft",
+            "title": "Test Dataset",
+            "desc": "Desc",
+            "publication_type": "none",
+            "publication_doi": "",
+            "tags": "tag",
+            "community_id": "7",
+            "new_community_name": "",
+            "authors-0-name": "Doe, John",
+            "authors-0-affiliation": "",
+            "authors-0-orcid": "",
+            "file": (io.BytesIO(json.dumps({"movies":[{"title":"A","year":2020,"director":"D"}]}).encode()), "movies.json"),
+        }
+
+        resp = test_client.post("/moviedataset/upload", data=data, content_type="multipart/form-data")
+
+    assert resp.status_code == 302
+    mock_upload_draft.assert_called_once()
+    _, kwargs = mock_upload_draft.call_args
+    assert kwargs["community_id"] == 7
+
+
+@patch("app.modules.movie.routes.movie_service.upload_draft_dataset")
+@patch("app.modules.movie.routes.db.session")
+@patch("app.modules.movie.routes.Community")
+def test_upload_dataset_creates_new_community_without_logo(mock_community_model, mock_session, mock_upload_draft, test_client):
+    mock_dataset = MagicMock()
+    mock_dataset.id = 31
+    mock_upload_draft.return_value = (mock_dataset, 1, 111)
+
+    mock_community_model.query.order_by.return_value.all.return_value = []
+
+    mock_community_model.query.filter_by.return_value.first.return_value = None
+
+    new_c = MagicMock()
+    new_c.id = 99
+    mock_community_model.return_value = new_c
+
+    def flush_side_effect():
+        new_c.id = 99
+    mock_session.flush.side_effect = flush_side_effect
+
+    with patch("flask_login.utils._get_user") as mock_current_user:
+        u = MagicMock()
+        u.is_authenticated = True
+        u.id = 1
+        u.profile.name = "John"
+        u.profile.surname = "Doe"
+        u.profile.affiliation = ""
+        u.profile.orcid = ""
+        mock_current_user.return_value = u
+
+        data = {
+            "action": "draft",
+            "title": "Test Dataset",
+            "desc": "Desc",
+            "publication_type": "none",
+            "publication_doi": "",
+            "tags": "tag",
+            "community_id": "7",
+            "new_community_name": "NuevaComunidad",
+            "authors-0-name": "Doe, John",
+            "authors-0-affiliation": "",
+            "authors-0-orcid": "",
+            "file": (io.BytesIO(json.dumps({"movies":[{"title":"A","year":2020,"director":"D"}]}).encode()), "movies.json"),
+        }
+
+        resp = test_client.post("/moviedataset/upload", data=data, content_type="multipart/form-data")
+
+    assert resp.status_code == 302
+    mock_community_model.assert_any_call(name="NuevaComunidad", logo_url=None)
+    _, kwargs = mock_upload_draft.call_args
+    assert kwargs["community_id"] == 99
+
+
+@patch("app.modules.movie.routes.movie_service.upload_draft_dataset")
+@patch("app.modules.movie.routes.Community")
+def test_upload_dataset_new_name_uses_existing_community(mock_community_model, mock_upload_draft, test_client):
+    mock_dataset = MagicMock()
+    mock_dataset.id = 32
+    mock_upload_draft.return_value = (mock_dataset, 1, 111)
+
+    mock_community_model.query.order_by.return_value.all.return_value = []
+
+    existing = MagicMock()
+    existing.id = 55
+    mock_community_model.query.filter_by.return_value.first.return_value = existing
+
+    with patch("flask_login.utils._get_user") as mock_current_user:
+        u = MagicMock()
+        u.is_authenticated = True
+        u.id = 1
+        u.profile.name = "John"
+        u.profile.surname = "Doe"
+        u.profile.affiliation = ""
+        u.profile.orcid = ""
+        mock_current_user.return_value = u
+
+        data = {
+            "action": "draft",
+            "title": "Test Dataset",
+            "desc": "Desc",
+            "publication_type": "none",
+            "publication_doi": "",
+            "tags": "tag",
+            "new_community_name": "ExistingName",
+            "authors-0-name": "Doe, John",
+            "authors-0-affiliation": "",
+            "authors-0-orcid": "",
+            "file": (io.BytesIO(json.dumps({"movies":[{"title":"A","year":2020,"director":"D"}]}).encode()), "movies.json"),
+        }
+
+        resp = test_client.post("/moviedataset/upload", data=data, content_type="multipart/form-data")
+
+    assert resp.status_code == 302
+    mock_community_model.assert_not_called()
+    _, kwargs = mock_upload_draft.call_args
+    assert kwargs["community_id"] == 55
+
+
+@patch("app.modules.movie.routes.movie_service.upload_draft_dataset")
+@patch("app.modules.movie.routes.os.makedirs")
+@patch("app.modules.movie.routes.uuid")
+@patch("app.modules.movie.routes.secure_filename")
+@patch("app.modules.movie.routes.Community")
+def test_upload_dataset_existing_name_ignores_logo(
+    mock_community_model,
+    mock_secure_filename,
+    mock_uuid,
+    mock_makedirs,
+    mock_upload_draft,
+    test_client,
+    tmp_path
+):
+    mock_dataset = MagicMock()
+    mock_dataset.id = 34
+    mock_upload_draft.return_value = (mock_dataset, 1, 111)
+
+    mock_community_model.query.order_by.return_value.all.return_value = []
+
+    existing = MagicMock()
+    existing.id = 55
+    mock_community_model.query.filter_by.return_value.first.return_value = existing
+
+    with patch("app.modules.movie.routes.current_app") as mock_current_app:
+        mock_current_app.static_folder = str(tmp_path)
+
+        with patch("flask_login.utils._get_user") as mock_current_user:
+            u = MagicMock()
+            u.is_authenticated = True
+            u.id = 1
+            u.profile.name = "John"
+            u.profile.surname = "Doe"
+            u.profile.affiliation = ""
+            u.profile.orcid = ""
+            mock_current_user.return_value = u
+
+            data = {
+                "action": "draft",
+                "title": "Test Dataset",
+                "desc": "Desc",
+                "publication_type": "none",
+                "publication_doi": "",
+                "tags": "tag",
+                "new_community_name": "ExistingName",
+                "new_community_logo": (io.BytesIO(b"fake"), "logo.png"),
+                "authors-0-name": "Doe, John",
+                "authors-0-affiliation": "",
+                "authors-0-orcid": "",
+                "file": (
+                    io.BytesIO(json.dumps({"movies": [{"title": "A", "year": 2020, "director": "D"}]}).encode()),
+                    "movies.json",
+                ),
+            }
+
+            resp = test_client.post("/moviedataset/upload", data=data, content_type="multipart/form-data")
+
+    assert resp.status_code == 302
+
+    mock_community_model.assert_not_called()
+
+    mock_makedirs.assert_not_called()
+    mock_secure_filename.assert_not_called()
+    mock_uuid.uuid4.assert_not_called()
+
+    _, kwargs = mock_upload_draft.call_args
+    assert kwargs["community_id"] == 55
+
+
+@patch("app.modules.movie.routes.movie_service.upload_draft_dataset")
+@patch("app.modules.movie.routes.db.session")
+@patch("app.modules.movie.routes.uuid")
+@patch("app.modules.movie.routes.Community")
+def test_upload_dataset_new_community_saves_logo(
+    mock_community_model, mock_uuid, mock_session, mock_upload_draft, test_client, tmp_path
+):
+    mock_dataset = MagicMock()
+    mock_dataset.id = 33
+    mock_upload_draft.return_value = (mock_dataset, 1, 111)
+
+    mock_community_model.query.order_by.return_value.all.return_value = []
+    mock_community_model.query.filter_by.return_value.first.return_value = None
+
+    new_c = MagicMock()
+    new_c.id = 77
+    mock_community_model.return_value = new_c
+
+    mock_uuid.uuid4.return_value.hex = "abc123"
+
+    fake_logo = MagicMock()
+    fake_logo.filename = "logo.png"
+
+    with patch("app.modules.movie.routes.current_app") as mock_current_app, \
+         patch("app.modules.movie.routes.secure_filename", return_value="logo.png"):
+
+        mock_current_app.static_folder = str(tmp_path)
+
+        with patch("flask_login.utils._get_user") as mock_current_user:
+            u = MagicMock()
+            u.is_authenticated = True
+            u.id = 1
+            u.profile.name = "John"
+            u.profile.surname = "Doe"
+            u.profile.affiliation = ""
+            u.profile.orcid = ""
+            mock_current_user.return_value = u
+
+            data = {
+                "action": "draft",
+                "title": "Test Dataset",
+                "desc": "Desc",
+                "publication_type": "none",
+                "publication_doi": "",
+                "tags": "tag",
+                "new_community_name": "ConLogo",
+                "new_community_logo": (io.BytesIO(b"fake"), "logo.png"),  # 👈 upload real en test_client
+                "authors-0-name": "Doe, John",
+                "authors-0-affiliation": "",
+                "authors-0-orcid": "",
+                "file": (io.BytesIO(json.dumps({"movies":[{"title":"A","year":2020,"director":"D"}]}).encode()), "movies.json"),
+            }
+
+            resp = test_client.post("/moviedataset/upload", data=data, content_type="multipart/form-data")
+
+    assert resp.status_code == 302
+    mock_community_model.assert_any_call(name="ConLogo", logo_url="community_abc123.png")
