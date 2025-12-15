@@ -458,11 +458,11 @@ class MovieSeeder(BaseSeeder):
         movie_service.create_version(doc_dataset)
         
         # ==========================================================
-        # DATASET 3 — DOCUMENTARIES (PEQUEÑO, PARA TEST/SEEDS)
+        # DATASET 4 
         # ==========================================================
         doc_meta = DSMetaData(
-            title="Documentary Highlights",
-            description="A small curated set of notable documentaries",
+            title=" Various Masterpieces",
+            description="A small curated set of some of the best movies all time",
             publication_type=PublicationType.OTHER,
             tags="movies,documentary,non-fiction",
             dataset_doi="10.1234/documentary-2025",
@@ -472,8 +472,8 @@ class MovieSeeder(BaseSeeder):
 
         db.session.add(
             Author(
-                name="Documentary Collective",
-                affiliation="Docs Org",
+                name="Doe, John",
+                affiliation="University of Seville",
                 orcid="0000-0000-0000-0001",
                 ds_meta_data_id=doc_meta.id
             )
@@ -522,8 +522,8 @@ class MovieSeeder(BaseSeeder):
 
         fm_meta_doc = FMMetaData(
             filename="movies3.json",
-            title="Documentary Movies File",
-            description="Documentary dataset file",
+            title="Masterpiece Movies File",
+            description="Masterpieces dataset file",
             publication_type=PublicationType.OTHER,
             tags="movies,json",
             version="1.0"
@@ -565,8 +565,8 @@ class MovieSeeder(BaseSeeder):
 
         movie_service.edit_metadata(
             dataset=doc_dataset,
-            new_title="Documentary Masterpieces",
-            new_description="Updated: A comprehensive collection of award-winning documentaries",
+            new_title="All ever Masterpieces",
+            new_description="Updated: A comprehensive collection of award-winning films",
             new_tags="movies,documentary,awards,masterpieces",
             user_id=user1.id,
             comment="Changed title and added more descriptive tags"
@@ -574,12 +574,12 @@ class MovieSeeder(BaseSeeder):
 
         new_authors_with_second = [
             {
-                'name': 'Documentary Collective',
-                'affiliation': 'Docs Org',
+                'name': 'Doe, John',
+                'affiliation': 'University of Seville',
                 'orcid': '0000-0000-0000-0001'
             },
             {
-                'name': 'Film Archive Team', 
+                'name': 'Carmona, Alejandro', 
                 'affiliation': 'Global Documentary Institute',
                 'orcid': '0000-0000-0000-0002'
             }
@@ -598,26 +598,7 @@ class MovieSeeder(BaseSeeder):
             user_id=user1.id,
             comment="Moved to AI research community"
         )
-        
-        new_authors_updated = [
-            {
-                'name': 'Documentary Collective',
-                'affiliation': 'International Documentary Foundation',  # 👈 Cambiado
-                'orcid': '0000-0000-0000-0099'  # 👈 Cambiado
-            },
-            {
-                'name': 'Film Archive Team',
-                'affiliation': 'Global Documentary Institute',
-                'orcid': '0000-0000-0000-0002'
-            }
-        ]
-
-        movie_service.edit_authors(
-            dataset=doc_dataset,
-            new_authors=new_authors_updated,
-            user_id=user1.id,
-            comment="Updated main author affiliation and ORCID"
-        )
 
         db.session.commit()
-
+        
+        
