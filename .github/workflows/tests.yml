@@ -13,7 +13,7 @@ jobs:
 
     services:
       mysql:
-        image: mariadb:11.4
+        image: mariadb:10.11
         env:
           MYSQL_ROOT_PASSWORD: uvlhub_root_password
           MYSQL_DATABASE: uvlhubdb_test
