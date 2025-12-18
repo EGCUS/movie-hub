@@ -9,11 +9,11 @@ on:
 
 jobs:
   pytest:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-22.02
 
     services:
       mysql:
-        image: mysql:8.0
+        image: mysql:7.9
         env:
           MYSQL_ROOT_PASSWORD: uvlhub_root_password
           MYSQL_DATABASE: uvlhubdb_test
@@ -28,7 +28,7 @@ jobs:
 
     - uses: actions/setup-python@v5
       with:
-        python-version: '3.11'
+        python-version: '3.10'
 
     - name: Install dependencies
       run: |
